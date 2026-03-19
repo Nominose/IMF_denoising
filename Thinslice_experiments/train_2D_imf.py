@@ -53,8 +53,8 @@ print('train:', x0_list_train.shape, condition_list_train.shape, 'val:', x0_list
 print(x0_list_train[0:5], condition_list_train[0:5])
 
 # ========== Histogram equalization bins ==========
-bins = np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy') if histogram_equalization else None
-bins_mapped = np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy') if histogram_equalization else None
+bins = np.load('/host/d/file/histogram_equalization/bins.npy') if histogram_equalization else None
+bins_mapped = np.load('/host/d/file/histogram_equalization/bins_mapped.npy') if histogram_equalization else None
 
 # ========== Base U-Net ==========
 base_model = Unet(
