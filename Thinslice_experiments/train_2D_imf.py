@@ -18,11 +18,11 @@ import Diffusion_denoising_thin_slice.Generator_thinslice as Generator
 from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
 
 # ========== Parameters ==========
-trial_name = 'imf_supervised_gaussian_brainCT'
+trial_name = 'imf_unsupervised_gaussian_brainCT'
 problem_dimension = '2D'
-supervision = 'supervised'
+supervision = 'unsupervised'
 
-condition_channel = 1
+condition_channel = 2
 train_batch_size = 25
 pre_trained_model = None
 start_step = 0
