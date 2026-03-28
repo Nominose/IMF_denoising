@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "/gpfs/work/aac/xingyiyao23/Code"
+    ]
+}
