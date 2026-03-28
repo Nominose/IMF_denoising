@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising status)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising diff --name-only)",
+      "Read(//c/Users/ROG/Documents/GitHub/IMF_denoising/Thinslice_experiments/**)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising log --oneline -5)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising diff HEAD)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising show --stat 5f0522f)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising checkout -b brain-ct-imf-training)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising push -u origin brain-ct-imf-training)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising log --oneline main..brain-ct-imf-training)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising log --oneline --all)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising diff --stat)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising diff origin/main..brain-ct-imf-training --stat)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising checkout main)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising branch -d brain-ct-imf-training)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising push origin --delete brain-ct-imf-training)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising diff)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising add Thinslice_experiments/train_2D_imf.py)",
+      "Bash(git -C:*)",
+      "Bash(git -C /c/Users/ROG/Documents/GitHub/IMF_denoising push)",
+      "Bash(find /c/Users/ROG/Documents/GitHub/IMF_denoising/Thinslice_experiments -type f \\\\\\(-name *.py -o -name *.ipynb \\\\\\))",
+      "Bash(python -c \":*)"
+    ]
+  }
+}

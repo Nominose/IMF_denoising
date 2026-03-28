@@ -23,7 +23,7 @@ problem_dimension = '2D'
 supervision = 'unsupervised'
 
 condition_channel = 2
-train_batch_size = 25
+train_batch_size = 4
 pre_trained_model = None
 start_step = 0
 
@@ -110,7 +110,7 @@ generator_val = Generator.Dataset_2D(
     random_pick_slice=False,
     slice_range=[20, 40],
     num_patches_per_slice=1,
-    patch_size=[512, 512],
+    patch_size=[256, 256],
     histogram_equalization=histogram_equalization,
     bins=bins,
     bins_mapped=bins_mapped,
@@ -129,7 +129,7 @@ trainer = imf.Trainer(
     generator_val=generator_val,
     train_batch_size=train_batch_size,
     accum_iter=1,
-    train_num_steps=200,
+    train_num_steps=100,
     results_folder=save_models_folder,
     train_lr=1e-4,
     train_lr_decay_every=200,
