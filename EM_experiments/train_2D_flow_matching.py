@@ -5,7 +5,7 @@ This is a minimal modification of CT_experiments/train_2D.py.
 Lines marked with  # <-- CHANGED  are the only differences from the DDPM version.
 """
 import sys
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import numpy as np
@@ -51,7 +51,7 @@ normalize_factor = 'equation'
 
 # ---------- patient list (unchanged) ----------
 build_sheet = Build_list.Build(
-    os.path.join('/host/d/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v2.xlsx')
+    os.path.join('/gpfs/work/aac/xingyiyao23/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v2.xlsx')
 )
 _, _, _, noise_file_all_list_train, noise_file_odd_list_train, noise_file_even_list_train, gt_file_list_train, slice_num_list_train = \
     build_sheet.__build__(batch_list=['train'])
@@ -168,7 +168,7 @@ generator_val = G(
 # ======================================================================
 # CHANGE 4:  Use fm.Trainer instead of ddpm.Trainer
 # ======================================================================
-save_models_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models')
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models')
 ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 
 # BEFORE:  trainer = ddpm.Trainer(...)

@@ -1,5 +1,5 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import numpy as np 
@@ -23,7 +23,7 @@ edge_weight = 0#0.05
 # else: condition on neighboring slices, target the current slice
 condition_channel = 2
 
-pre_trained_model = None#os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-2640.pt') #None
+pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-2640.pt') #None
 start_step = 0
 image_size = [512,512]
 num_patches_per_slice = 2
@@ -38,7 +38,7 @@ normalize_factor = 'equation'
 
 ###########################
 # define train
-build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/host/d/Data/brain_CT/Patient_lists/fixedCT_static_distilled_model_train_test_xjtlu.xlsx'))
+build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/gpfs/work/aac/xingyiyao23/Data/brain_CT/Patient_lists/fixedCT_static_distilled_model_train_test_xjtlu.xlsx'))
 _,_,_,_, condition_list_train, x0_list_train = build_sheet.__build__(batch_list = [0,1,2,3,4,5]) 
 # find out who has avg20 
 index_list = []
@@ -127,7 +127,7 @@ trainer = ddpm.Trainer(
     
     accum_iter = 1,
     train_num_steps = 200, # total training epochs
-    results_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models'),
+    results_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models'),
    
     train_lr = 1e-4,
     train_lr_decay_every = 200, 

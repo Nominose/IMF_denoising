@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import argparse
@@ -41,7 +41,7 @@ def run(args):
     input_condition = args.input  #'both', 'odd', 'even', 'all'
     print('noise type:', args.noise_type)
 
-    study_folder = '/host/d/projects/denoising/models'
+    study_folder = '/gpfs/work/aac/xingyiyao23/results'
 
     trained_model_filename = os.path.join(study_folder,trial_name, 'models/model-' + str(epoch)+ '.pt')
     save_folder = os.path.join(study_folder, trial_name, 'pred_images_input_'+ input_condition) 
@@ -57,13 +57,13 @@ def run(args):
     print('background cutoff:', background_cutoff, '; maximum cutoff:', maximum_cutoff, '; normalize factor:', normalize_factor)
     #######################
     if args.noise_type == 'gaussian':
-        build_sheet_v2 =  Build_list.Build(os.path.join('/host/d/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v2.xlsx'))
-        build_sheet_v3 = Build_list.Build(os.path.join('/host/d/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v3.xlsx'))
+        build_sheet_v2 =  Build_list.Build(os.path.join('/gpfs/work/aac/xingyiyao23/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v2.xlsx'))
+        build_sheet_v3 = Build_list.Build(os.path.join('/gpfs/work/aac/xingyiyao23/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v3.xlsx'))
         batch_list, patient_id_list, random_num_list,noise_file_all_list, noise_file_odd_list, _, ground_truth_file_list, slice_num_list = build_sheet_v2.__build__(batch_list = ['train','val','test'])
         _, _, _, _, _,noise_file_even_list, _, _ = build_sheet_v3.__build__(batch_list = ['train','val','test'])
 
     elif args.noise_type == 'poisson':
-        build_sheet =  Build_list.Build(os.path.join('/host/d/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_poisson_simulation_v2.xlsx'))
+        build_sheet =  Build_list.Build(os.path.join('/gpfs/work/aac/xingyiyao23/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_poisson_simulation_v2.xlsx'))
         batch_list, patient_id_list, random_num_list, noise_file_all_list, noise_file_odd_list, noise_file_even_list, ground_truth_file_list, slice_num_list = build_sheet.__build__(batch_list = ['train','val','test'])
 
     print('example of noise file all:', noise_file_all_list[0])
@@ -150,8 +150,8 @@ def run(args):
                 slice_range = [100,200],# None,
                 
                 histogram_equalization = histogram_equalization,
-                bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_lowdoseCT.npy'),
-                bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
+                bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_lowdoseCT.npy'),
+                bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
                 background_cutoff = background_cutoff,
                 maximum_cutoff = maximum_cutoff,
                 normalize_factor = normalize_factor,)

@@ -2,7 +2,7 @@
 train_2D_flow_matching.py  —  Mayo Low-Dose CT with Flow Matching
 """
 import sys
-sys.path.append('/host/c/Users/ROG/Documents/GitHub')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import numpy as np
@@ -37,7 +37,7 @@ maximum_cutoff = 250
 normalize_factor = 'equation'
 
 # ========== Patient list ==========
-patient_list_file = '/host/d/file/新建文件夹/mayo/mayo_flow_matching.xlsx'
+patient_list_file = '/gpfs/work/aac/xingyiyao23/Data/新建文件夹/mayo/mayo_flow_matching.xlsx'
 
 build_sheet = Build_list.Build(patient_list_file)
 
@@ -130,7 +130,7 @@ generator_val = G(
 )
 
 # ========== 训练 ==========
-save_models_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models')
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models')
 ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 
 trainer = fm.Trainer(

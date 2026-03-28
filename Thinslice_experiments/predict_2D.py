@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import numpy as np 
@@ -15,8 +15,8 @@ problem_dimension = '2D'
 supervision = 'supervised' if trial_name[0:2] == 'su' else 'unsupervised'; print('supervision:', supervision)
 
 epoch = 75
-trained_model_filename = os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-' + str(epoch)+ '.pt')
-save_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
+trained_model_filename = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-' + str(epoch)+ '.pt')
+save_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
 
 # bias 
 beta = 0
@@ -40,7 +40,7 @@ clip_range = [-1,1]
 do_pred_or_avg = 'pred'
 
 ###########
-build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/host/d/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'))
+build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/gpfs/work/aac/xingyiyao23/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'))
 _,patient_id_list,patient_subid_list,random_num_list, condition_list, x0_list = build_sheet.__build__(batch_list = [5]) 
 print('total cases:', patient_id_list.shape[0])
 n = ff.get_X_numbers_in_interval(total_number = patient_id_list.shape[0],start_number = 0,end_number = 1, interval = 2)
@@ -116,8 +116,8 @@ for i in range(0,n.shape[0]):
                 slice_range = [30,80],
 
                 histogram_equalization = histogram_equalization,
-                bins = np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
-                bins_mapped = np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
+                bins = np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
+                bins_mapped = np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
                 background_cutoff = background_cutoff,
                 maximum_cutoff = maximum_cutoff,
                 normalize_factor = normalize_factor,)

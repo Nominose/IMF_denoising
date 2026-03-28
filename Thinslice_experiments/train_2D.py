@@ -1,5 +1,5 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import numpy as np 
@@ -22,7 +22,7 @@ edge_weight = 0#0.05
 # else: condition on neighboring slices, target the current slice
 condition_channel = 1 if (supervision == 'supervised') or ('mean' in trial_name) else 2
 
-pre_trained_model = None#os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-2640.pt') #None
+pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-2640.pt') #None
 start_step = 0#2640
 image_size = [512,512]
 num_patches_per_slice = 2
@@ -38,9 +38,9 @@ normalize_factor = 'equation'
 ###########################
 # define train
 if supervision == 'supervised':
-    build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/host/d/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu_temporary.xlsx'))
+    build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/gpfs/work/aac/xingyiyao23/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu_temporary.xlsx'))
 else:
-    build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/host/d/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'))
+    build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/gpfs/work/aac/xingyiyao23/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'))
 
 _,_,_,_, condition_list_train, x0_list_train = build_sheet.__build__(batch_list = [0,1,2,3]) 
 n = ff.get_X_numbers_in_interval(total_number = x0_list_train.shape[0],start_number = 0,end_number = 1, interval = 2)
@@ -95,8 +95,8 @@ generator_train = Generator.Dataset_2D(
         patch_size = patch_size,
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
+        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
         normalize_factor = normalize_factor,
@@ -120,8 +120,8 @@ generator_val = Generator.Dataset_2D(
         patch_size = [512,512],
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
+        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
         normalize_factor = normalize_factor,)
@@ -135,7 +135,7 @@ trainer = ddpm.Trainer(
     
     accum_iter = 1,
     train_num_steps = 150, # total training epochs
-    results_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models'),
+    results_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models'),
    
     train_lr = 1e-4,
     train_lr_decay_every = 200,#200, 

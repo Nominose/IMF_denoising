@@ -5,7 +5,7 @@ predict_2D_imf.py — Mayo Low-Dose CT inference with improved MeanFlow (iMF)
 iMF K=8 = 8 forward passes per slice vs FM K=8 = 400 per slice
 """
 import sys
-sys.path.append('/host/c/Users/ROG/Documents/GitHub')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import argparse
 import os
 import torch
@@ -40,7 +40,7 @@ def run(args):
     supervision = 'unsupervised'
     print('supervision:', supervision)
 
-    study_folder = '/host/d/projects/denoising/models'
+    study_folder = '/gpfs/work/aac/xingyiyao23/results'
     trained_model_filename = os.path.join(study_folder, trial_name, 'models/model-' + str(epoch) + '.pt')
     save_folder = os.path.join(study_folder, trial_name, 'pred_images_input_' + input_condition)
     os.makedirs(save_folder, exist_ok=True)
@@ -52,7 +52,7 @@ def run(args):
     normalize_factor = 'equation'
 
     # ========== Patient list ==========
-    build_sheet = Build_list.Build(os.path.join('/host/d/file/新建文件夹/mayo/mayo_flow_matching.xlsx'))
+    build_sheet = Build_list.Build(os.path.join('/gpfs/work/aac/xingyiyao23/Data/新建文件夹/mayo/mayo_flow_matching.xlsx'))
     _, patient_id_list, random_num_list, noise_file_all_list, noise_file_odd_list, noise_file_even_list, ground_truth_file_list, _ = \
         build_sheet.__build__(batch_list=['test'])
 

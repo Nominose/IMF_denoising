@@ -6,7 +6,7 @@ Usage:
   python predict_2D_imf.py --epoch 30 --mode avg
 """
 import sys
-sys.path.append('/host/c/Users/ROG/Documents/GitHub')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import argparse
 import os
 import torch
@@ -40,7 +40,7 @@ def run(args):
     condition_channel = 2
     print('supervision:', supervision)
 
-    study_folder = '/host/d/projects/denoising/models'
+    study_folder = '/gpfs/work/aac/xingyiyao23/results'
     trained_model_filename = os.path.join(study_folder, trial_name, 'models/model-' + str(epoch) + '.pt')
     save_folder = os.path.join(study_folder, trial_name, 'pred_images')
     os.makedirs(save_folder, exist_ok=True)
@@ -52,11 +52,11 @@ def run(args):
     normalize_factor = 'equation'
 
     # ========== Histogram equalization bins ==========
-    bins = np.load('/host/d/file/histogram_equalization/bins.npy')
-    bins_mapped = np.load('/host/d/file/histogram_equalization/bins_mapped.npy')
+    bins = np.load('/gpfs/work/aac/xingyiyao23/Data/histogram_equalization/bins.npy')
+    bins_mapped = np.load('/gpfs/work/aac/xingyiyao23/Data/histogram_equalization/bins_mapped.npy')
 
     # ========== Patient list (test set = batch 5) ==========
-    patient_list_file = '/host/d/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'
+    patient_list_file = '/gpfs/work/aac/xingyiyao23/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'
     build_sheet = Build_list.Build_thinsliceCT(patient_list_file)
     _, patient_id_list, patient_subid_list, random_num_list, condition_list, x0_list = \
         build_sheet.__build__(batch_list=[5])

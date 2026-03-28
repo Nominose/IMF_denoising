@@ -1,5 +1,5 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch 
 import numpy as np
@@ -13,7 +13,7 @@ trial_name = 'noise2noise_simple_MR'
 preload = True
 supervision = 'unsupervised' 
 
-pre_trained_model = None#os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-20.pt')
+pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-20.pt')
 start_step = 0
 train_batch_size = 1
 
@@ -26,7 +26,7 @@ maximum_cutoff = 0.00015
 normalize_factor = 'equation'
 #######################
 # define train
-build_sheet =  Build_list.Build(os.path.join('/host/d/Data/NYU_MR/Patient_lists/NYU_MR_simulation.xlsx'))
+build_sheet =  Build_list.Build(os.path.join('/gpfs/work/aac/xingyiyao23/Data/NYU_MR/Patient_lists/NYU_MR_simulation.xlsx'))
 
 # define train patient list
 _, _, _, noise_file_all_list_train, noise_file_odd_list_train, noise_file_even_list_train, gt_file_list_train, slice_num_list_train = build_sheet.__build__(batch_list = ['train']) 
@@ -117,7 +117,7 @@ generator_val = G(
 
 
 # train
-save_models_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 trainer = noise2noise.Trainer(
     model= model,
     generator_train = generator_train,

@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import argparse
@@ -39,7 +39,7 @@ def run(args):
     epoch = args.epoch
     input_condition = args.input  #'both', 'odd', 'even', 'all'
 
-    study_folder = '/host/d/projects/denoising/models'
+    study_folder = '/gpfs/work/aac/xingyiyao23/results'
 
     trained_model_filename = os.path.join(study_folder,trial_name, 'models/model-' + str(epoch)+ '.pt')
     save_folder = os.path.join(study_folder, trial_name, 'pred_images_input_'+ input_condition) 
@@ -53,7 +53,7 @@ def run(args):
     maximum_cutoff = 0.00015
     normalize_factor = 'equation'
     #######################
-    build_sheet =  Build_list.Build(os.path.join('/host/d/Data/NYU_MR/Patient_lists/NYU_MR_simulation.xlsx'))
+    build_sheet =  Build_list.Build(os.path.join('/gpfs/work/aac/xingyiyao23/Data/NYU_MR/Patient_lists/NYU_MR_simulation.xlsx'))
     batch_list, patient_id_list, random_num_list, noise_file_all_list, noise_file_odd_list, noise_file_even_list, ground_truth_file_list, slice_num_list = build_sheet.__build__(batch_list = ['test'])
     print('example of noise file all:', noise_file_all_list[0])
     n = ff.get_X_numbers_in_interval(total_number = patient_id_list.shape[0],start_number = 0,end_number = 1, interval = 1)

@@ -1,5 +1,5 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch 
 import numpy as np
@@ -13,7 +13,7 @@ trial_name = 'noise2noise_EM_range-1+1'
 preload = False
 supervision = 'unsupervised' 
 
-pre_trained_model = None#os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-10.pt')
+pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-10.pt')
 start_step = 0
 train_batch_size = 1
 
@@ -28,7 +28,7 @@ final_max = 1
 final_min = -1
 normalize_factor = 'equation'
 #######################
-build_sheet =  Build_list.Build_EM(os.path.join('/host/d/Data/minnie_EM/Patient_lists/minnie_EM_split_gaussian_simulation_v1.xlsx'))
+build_sheet =  Build_list.Build_EM(os.path.join('/gpfs/work/aac/xingyiyao23/Data/minnie_EM/Patient_lists/minnie_EM_split_gaussian_simulation_v1.xlsx'))
 
 # define train patient list
 _, patient_id_list_train, _, _, simulation_file_1_list_train, simulation_file_2_list_train, ground_truth_file_list_train, _ = build_sheet.__build__(batch_list = ['train'])
@@ -119,7 +119,7 @@ generator_val = G(
 
 
 # train
-save_models_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 trainer = noise2noise.Trainer(
     model= model,
     generator_train = generator_train,

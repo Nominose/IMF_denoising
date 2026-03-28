@@ -1,5 +1,5 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import argparse
 import os
 import torch
@@ -41,7 +41,7 @@ def run(args):
 
     supervision = 'supervised' if trial_name[0:2] == 'su' else 'unsupervised'; print('supervision:', supervision)
 
-    study_folder = '/host/d/projects/denoising/models'
+    study_folder = '/gpfs/work/aac/xingyiyao23/results'
     trained_model_filename = os.path.join(study_folder,trial_name, 'models/model-' + str(epoch)+ '.pt')
     save_folder = os.path.join(study_folder, trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
 
@@ -58,7 +58,7 @@ def run(args):
     normalize_factor = 'equation'
 
     ###########
-    build_sheet =  Build_list.Build_EM(os.path.join('/host/d/Data/minnie_EM/Patient_lists/minnie_EM_split_gaussian_simulation_v1.xlsx'))
+    build_sheet =  Build_list.Build_EM(os.path.join('/gpfs/work/aac/xingyiyao23/Data/minnie_EM/Patient_lists/minnie_EM_split_gaussian_simulation_v1.xlsx'))
 
     # define train patient list
     batch_list, patient_id_list, _,_,simulation_file_1_list, simulation_file_2_list, ground_truth_file_list, slice_num_list = build_sheet.__build__(batch_list = ['test'])

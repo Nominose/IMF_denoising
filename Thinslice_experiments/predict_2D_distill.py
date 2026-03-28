@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import numpy as np 
@@ -15,10 +15,10 @@ problem_dimension = '2D'
 supervision = 'supervised'
 
 epoch = 164
-trained_model_filename = os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-' + str(epoch)+ '.pt')
+trained_model_filename = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-' + str(epoch)+ '.pt')
 if os.path.isfile(trained_model_filename) ==0:
     print('no model')
-save_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
+save_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
 
 # bias 
 beta = 0
@@ -38,7 +38,7 @@ clip_range = [-1,1]
 
 
 ###########
-build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/host/d/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'))
+build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/gpfs/work/aac/xingyiyao23/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'))
 _,patient_id_list,patient_subid_list,random_num_list, condition_list, x0_list = build_sheet.__build__(batch_list = [5]) 
 n = ff.get_X_numbers_in_interval(total_number = patient_id_list.shape[0],start_number = 0,end_number = 1, interval = 2)
 print('total number:', n.shape[0])

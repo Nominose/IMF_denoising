@@ -15,7 +15,7 @@ Usage:
   python3 predict_2D_flow_matching.py --trial_name flow_matching_unsupervised_gaussian_mayo --epoch 190 --mode avg --input both --slice_range 100-200
 """
 import sys
-sys.path.append('/host/c/Users/ROG/Documents/GitHub')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code
 import argparse
 import os
 import torch
@@ -50,7 +50,7 @@ def run(args):
     supervision = 'supervised' if trial_name[:2] == 'su' else 'unsupervised'
     print('supervision:', supervision)
 
-    study_folder = '/host/d/projects/denoising/models'
+    study_folder = '/gpfs/work/aac/xingyiyao23/results'
     trained_model_filename = os.path.join(study_folder, trial_name, 'models', f'model-{epoch}.pt')
     save_folder = os.path.join(study_folder, trial_name, f'pred_images_input_{input_condition}')
     os.makedirs(save_folder, exist_ok=True)
@@ -64,7 +64,7 @@ def run(args):
     normalize_factor = 'equation'
 
     # patient list
-    patient_list_file = '/host/d/file/新建文件夹/mayo/mayo_flow_matching.xlsx'
+    patient_list_file = '/gpfs/work/aac/xingyiyao23/Data/新建文件夹/mayo/mayo_flow_matching.xlsx'
     build_sheet = Build_list.Build(patient_list_file)
 
     _, patient_id_list, random_num_list, noise_file_all_list, noise_file_odd_list, noise_file_even_list, \

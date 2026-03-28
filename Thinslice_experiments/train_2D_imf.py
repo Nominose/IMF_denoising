@@ -6,7 +6,7 @@ Combines:
 - Brain CT data loading from Thinslice_experiments/train_2D.py
 """
 import sys
-sys.path.append('/host/c/Users/ROG/Documents/GitHub')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import numpy as np
@@ -37,7 +37,7 @@ maximum_cutoff = 2000
 normalize_factor = 'equation'
 
 # ========== Patient list ==========
-patient_list_file = '/host/d/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'
+patient_list_file = '/gpfs/work/aac/xingyiyao23/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'
 build_sheet = Build_list.Build_thinsliceCT(patient_list_file)
 
 _, _, _, _, condition_list_train, x0_list_train = build_sheet.__build__(batch_list=[0, 1, 2, 3])
@@ -53,8 +53,8 @@ print('train:', x0_list_train.shape, condition_list_train.shape, 'val:', x0_list
 print(x0_list_train[0:5], condition_list_train[0:5])
 
 # ========== Histogram equalization bins ==========
-bins = np.load('/host/d/file/histogram_equalization/bins.npy') if histogram_equalization else None
-bins_mapped = np.load('/host/d/file/histogram_equalization/bins_mapped.npy') if histogram_equalization else None
+bins = np.load('/gpfs/work/aac/xingyiyao23/Data/histogram_equalization/bins.npy') if histogram_equalization else None
+bins_mapped = np.load('/gpfs/work/aac/xingyiyao23/Data/histogram_equalization/bins_mapped.npy') if histogram_equalization else None
 
 # ========== Base U-Net ==========
 base_model = Unet(
@@ -120,7 +120,7 @@ generator_val = Generator.Dataset_2D(
 )
 
 # ========== Training ==========
-save_models_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models')
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models')
 ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 
 trainer = imf.Trainer(

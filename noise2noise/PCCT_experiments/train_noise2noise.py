@@ -1,5 +1,5 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch 
 import numpy as np
@@ -13,7 +13,7 @@ trial_name = 'noise2noise_PCCT'
 preload = True
 supervision = 'unsupervised' 
 
-pre_trained_model = None#os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-10.pt')
+pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-10.pt')
 start_step = 0
 train_batch_size = 5
 
@@ -27,7 +27,7 @@ maximum_cutoff = 2000
 normalize_factor = 'equation'
 #######################
 # define train
-build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/host/d/Data/PCCT/Patient_lists/PCCT_split.xlsx'))
+build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/gpfs/work/aac/xingyiyao23/Data/PCCT/Patient_lists/PCCT_split.xlsx'))
 _,_,_,_, condition_list_train, _ = build_sheet.__build__(batch_list = [0]) 
 x0_list_train = condition_list_train
 # x0_list_train = x0_list_train[0:2]; condition_list_train = condition_list_train[0:2]
@@ -78,8 +78,8 @@ generator_train = Generator.Dataset_2D(
         patch_size = patch_size,
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
+        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
         normalize_factor = normalize_factor,
@@ -106,8 +106,8 @@ generator_val = Generator.Dataset_2D(
         patch_size = [512,512],
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
+        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
 
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
@@ -116,7 +116,7 @@ generator_val = Generator.Dataset_2D(
 
 
 # train
-save_models_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 trainer = noise2noise.Trainer(
     model= model,
     generator_train = generator_train,

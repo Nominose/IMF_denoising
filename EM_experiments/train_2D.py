@@ -1,5 +1,5 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import numpy as np 
@@ -26,7 +26,7 @@ condition_channel = 1
 train_batch_size = 3
 objective = 'pred_x0' #if 'noise' not in trial_name else 'pred_noise'
 
-pre_trained_model =  os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-100.pt') #None
+pre_trained_model =  os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-100.pt') #None
 start_step = 100
 
 # image condition
@@ -45,9 +45,9 @@ normalize_factor = 'equation'
 # define train
 if supervision == 'supervised':
     print('no supervised yet. only unsupervised')
-    # build_sheet =  Build_list.Build_EM(os.path.join('/host/d/Data/NYU_MR/Patient_lists/NYU_MR_simulation_undersample4_equispaced.xlsx'))
+    # build_sheet =  Build_list.Build_EM(os.path.join('/gpfs/work/aac/xingyiyao23/Data/NYU_MR/Patient_lists/NYU_MR_simulation_undersample4_equispaced.xlsx'))
 else:
-    build_sheet =  Build_list.Build_EM(os.path.join('/host/d/Data/minnie_EM/Patient_lists/minnie_EM_split_gaussian_simulation_v1.xlsx'))
+    build_sheet =  Build_list.Build_EM(os.path.join('/gpfs/work/aac/xingyiyao23/Data/minnie_EM/Patient_lists/minnie_EM_split_gaussian_simulation_v1.xlsx'))
 
 # define train patient list
 _, patient_id_list_train, _, _, simulation_file_1_list_train, simulation_file_2_list_train, ground_truth_file_list_train, _ = build_sheet.__build__(batch_list = ['train'])
@@ -149,7 +149,7 @@ generator_val = G(
 
 # #######Start to train
 # define a saved model folder
-save_models_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 trainer = ddpm.Trainer(
     diffusion_model= diffusion_model,
     generator_train = generator_train,

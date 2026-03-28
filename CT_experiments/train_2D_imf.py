@@ -5,7 +5,7 @@ Key difference from FM: 1-NFE sampling instead of 50-step ODE.
 iMF K=8 = 8 total steps vs FM K=8 = 400 steps.
 """
 import sys
-sys.path.append('/host/c/Users/ROG/Documents/GitHub')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch
 import numpy as np
@@ -37,7 +37,7 @@ maximum_cutoff = 250
 normalize_factor = 'equation'
 
 # ========== Patient list ==========
-patient_list_file = '/host/d/file/新建文件夹/mayo/mayo_flow_matching.xlsx'
+patient_list_file = '/gpfs/work/aac/xingyiyao23/Data/新建文件夹/mayo/mayo_flow_matching.xlsx'
 build_sheet = Build_list.Build(patient_list_file)
 
 _, _, _, noise_file_all_list_train, noise_file_odd_list_train, noise_file_even_list_train, gt_file_list_train, slice_num_list_train = \
@@ -130,7 +130,7 @@ generator_val = G(
 )
 
 # ========== Training ==========
-save_models_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models')
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models')
 ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 
 trainer = imf.Trainer(

@@ -1,6 +1,6 @@
 # make sure you have Github copilot installed, search it in the VSCode extension marketplace, it will make your coding much easier
 import sys 
-sys.path.append('/host/d/Github/')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code/')
 import os
 import torch
 import numpy as np
@@ -13,8 +13,8 @@ import Diffusion_denoising_thin_slice.noise2noise.Thinslice_experiments.Generato
 trial_name = 'noise2noise_brainCT' 
 epoch = 78
 # define your own saved model path and prediction save path
-trained_model_filename = os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-' + str(epoch)+ '.pt')
-save_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
+trained_model_filename = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-' + str(epoch)+ '.pt')
+save_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
 
 ### parameters no need to change
 image_size = [512,512]
@@ -25,7 +25,7 @@ maximum_cutoff = 2000
 normalize_factor = 'equation' 
 
 # define patient list
-build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/host/d/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'))
+build_sheet =  Build_list.Build_thinsliceCT(os.path.join('/gpfs/work/aac/xingyiyao23/Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'))
 _,patient_id_list,patient_subid_list,random_num_list, condition_list, x0_list = build_sheet.__build__(batch_list = [5]) 
 print('total cases:', patient_id_list.shape[0])
 n = ff.get_X_numbers_in_interval(total_number = patient_id_list.shape[0],start_number = 0,end_number = 1, interval = 2)
@@ -74,8 +74,8 @@ for i in range(0, n.shape[0]):
     
 
     # # generator
-    bins = np.load('/host/d/Github/CTDenoising_Diffusion_N2N/example_data/histogram_equalization/bins.npy') 
-    bins_mapped = np.load('/host/d/Github/CTDenoising_Diffusion_N2N/example_data/histogram_equalization/bins_mapped.npy')
+    bins = np.load('/gpfs/work/aac/xingyiyao23/Code/CTDenoising_Diffusion_N2N/example_data/histogram_equalization/bins.npy') 
+    bins_mapped = np.load('/gpfs/work/aac/xingyiyao23/Code/CTDenoising_Diffusion_N2N/example_data/histogram_equalization/bins_mapped.npy')
     generator = Generator.Dataset_2D(
         img_list = np.array([condition_file]),
         image_size = image_size,

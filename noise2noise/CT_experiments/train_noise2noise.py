@@ -1,5 +1,5 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch 
 import numpy as np
@@ -13,7 +13,7 @@ trial_name = 'noise2noise_mayo_poisson'
 preload = True
 supervision = 'unsupervised' 
 
-pre_trained_model = None#os.path.join('/host/d/projects/denoising/models', trial_name, 'models/model-10.pt')
+pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-10.pt')
 start_step = 0
 train_batch_size = 3
 
@@ -27,8 +27,8 @@ maximum_cutoff = 250
 normalize_factor = 'equation'
 #######################
 # define train
-build_sheet_v2 =  Build_list.Build(os.path.join('/host/d/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_poisson_simulation_v2.xlsx'))
-# build_sheet_v3 = Build_list.Build(os.path.join('/host/d/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v3.xlsx'))
+build_sheet_v2 =  Build_list.Build(os.path.join('/gpfs/work/aac/xingyiyao23/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_poisson_simulation_v2.xlsx'))
+# build_sheet_v3 = Build_list.Build(os.path.join('/gpfs/work/aac/xingyiyao23/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v3.xlsx'))
 
 # define train patient list
 _, _, _, _, noise_file_odd_list_train, noise_file_even_list_train, gt_file_list_train, slice_num_list_train = build_sheet_v2.__build__(batch_list = ['train']) 
@@ -82,8 +82,8 @@ generator_train = Generator.Dataset_2D(
         patch_size = patch_size,
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_lowdoseCT.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
+        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_lowdoseCT.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
         normalize_factor = normalize_factor,
@@ -113,15 +113,15 @@ generator_val = Generator.Dataset_2D(
         patch_size = [512,512], # use full image for validation if GPU memory allows
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_lowdoseCT.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
+        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_lowdoseCT.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
         normalize_factor = normalize_factor,)
 
 
 # train
-save_models_folder = os.path.join('/host/d/projects/denoising/models', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 trainer = noise2noise.Trainer(
     model= model,
     generator_train = generator_train,

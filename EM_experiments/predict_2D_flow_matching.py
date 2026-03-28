@@ -5,7 +5,7 @@ Minimal modification of CT_experiments/predict_2D.py for flow matching.
 Only 3 lines change (marked with # <-- CHANGED).
 """
 import sys
-sys.path.append('/host/d/Github')
+sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import argparse
 import os
 import torch
@@ -41,7 +41,7 @@ def run(args):
     supervision = 'supervised' if trial_name[:2] == 'su' else 'unsupervised'
     print('supervision:', supervision)
 
-    study_folder = '/host/d/projects/denoising/models'
+    study_folder = '/gpfs/work/aac/xingyiyao23/results'
     trained_model_filename = os.path.join(study_folder, trial_name, 'models', f'model-{epoch}.pt')
     save_folder = os.path.join(study_folder, trial_name, f'pred_images_input_{input_condition}')
     os.makedirs(save_folder, exist_ok=True)
@@ -56,7 +56,7 @@ def run(args):
 
     # patient list
     build_sheet = Build_list.Build(
-        os.path.join('/host/d/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v2.xlsx')
+        os.path.join('/gpfs/work/aac/xingyiyao23/Data/low_dose_CT/Patient_lists/mayo_low_dose_CT_gaussian_simulation_v2.xlsx')
     )
     _, patient_id_list, random_num_list, noise_file_all_list, noise_file_odd_list, noise_file_even_list, \
         ground_truth_file_list, _ = build_sheet.__build__(batch_list=['test'])
