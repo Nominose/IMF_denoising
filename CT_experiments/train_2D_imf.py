@@ -23,7 +23,7 @@ supervision = 'unsupervised'
 
 preload = True
 condition_channel = 1
-train_batch_size = 1
+train_batch_size = 5
 pre_trained_model = None
 start_step = 0
 

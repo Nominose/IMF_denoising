@@ -23,7 +23,7 @@ problem_dimension = '2D'
 supervision = 'unsupervised'
 
 condition_channel = 2
-train_batch_size = 4
+train_batch_size = 20
 pre_trained_model = None
 start_step = 0
 
