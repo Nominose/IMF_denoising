@@ -42,7 +42,7 @@ def run(args):
 
     study_folder = '/gpfs/work/aac/xingyiyao23/projects'
     trained_model_filename = os.path.join(study_folder, trial_name, 'models/model-' + str(epoch) + '.pt')
-    save_folder = os.path.join(study_folder, trial_name, 'pred_images')
+    save_folder = os.path.join(study_folder, trial_name, 'pred_images_nfe' + str(args.num_steps))
     os.makedirs(save_folder, exist_ok=True)
 
     image_size = [512, 512]
