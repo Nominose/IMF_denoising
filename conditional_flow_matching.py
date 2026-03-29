@@ -324,7 +324,7 @@ class Trainer(object):
 
         return bias_loss, l_lpips, l_edge
 
-    def train(self, pre_trained_model='/gpfs/work/aac/xingyiyao23/results/flow_matching_unsupervised_gaussian_mayo/models/model-190.pt', start_step=None, beta=0, lpips_weight=0, edge_weight=0):
+    def train(self, pre_trained_model='/gpfs/work/aac/xingyiyao23/projects/flow_matching_unsupervised_gaussian_mayo/models/model-190.pt', start_step=None, beta=0, lpips_weight=0, edge_weight=0):
         accelerator = self.accelerator
         device = accelerator.device
 

@@ -15,10 +15,10 @@ problem_dimension = '2D'
 supervision = 'supervised'
 
 epoch = 164
-trained_model_filename = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-' + str(epoch)+ '.pt')
+trained_model_filename = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models/model-' + str(epoch)+ '.pt')
 if os.path.isfile(trained_model_filename) ==0:
     print('no model')
-save_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
+save_folder = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
 
 # bias 
 beta = 0

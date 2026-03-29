@@ -22,7 +22,7 @@ edge_weight = 0#0.05
 # else: condition on neighboring slices, target the current slice
 condition_channel = 1 if (supervision == 'supervised') or ('mean' in trial_name) else 2
 
-pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-2640.pt') #None
+pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models/model-2640.pt') #None
 start_step = 0#2640
 image_size = [512,512]
 num_patches_per_slice = 2
@@ -135,7 +135,7 @@ trainer = ddpm.Trainer(
     
     accum_iter = 1,
     train_num_steps = 150, # total training epochs
-    results_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models'),
+    results_folder = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models'),
    
     train_lr = 1e-4,
     train_lr_decay_every = 200,#200, 

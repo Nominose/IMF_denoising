@@ -28,7 +28,7 @@ condition_channel = 1 if not adjacent_condition else 2
 train_batch_size = 5
 objective = 'pred_x0' #if 'noise' not in trial_name else 'pred_noise'
 
-pre_trained_model =  None#os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-216.pt') #None
+pre_trained_model =  None#os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models/model-216.pt') #None
 start_step = 0#216
 
 # image condition
@@ -163,7 +163,7 @@ generator_val = G(
 
 #######Start to train
 # define a saved model folder
-save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 trainer = ddpm.Trainer(
     diffusion_model= diffusion_model,
     generator_train = generator_train,

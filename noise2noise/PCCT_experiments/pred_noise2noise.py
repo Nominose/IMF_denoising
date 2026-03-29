@@ -13,8 +13,8 @@ import Diffusion_denoising_thin_slice.Generator_thinslice as Generator
 trial_name = 'noise2noise_PCCT' 
 epoch = 80
 # define your own saved model path and prediction save path
-trained_model_filename = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-' + str(epoch)+ '.pt')
-save_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
+trained_model_filename = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models/model-' + str(epoch)+ '.pt')
+save_folder = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
 
 ### parameters no need to change
 image_size = [512,512]

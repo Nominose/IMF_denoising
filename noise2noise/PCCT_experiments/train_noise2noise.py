@@ -13,7 +13,7 @@ trial_name = 'noise2noise_PCCT'
 preload = True
 supervision = 'unsupervised' 
 
-pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-10.pt')
+pre_trained_model = None#os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models/model-10.pt')
 start_step = 0
 train_batch_size = 5
 
@@ -116,7 +116,7 @@ generator_val = Generator.Dataset_2D(
 
 
 # train
-save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models');ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 trainer = noise2noise.Trainer(
     model= model,
     generator_train = generator_train,

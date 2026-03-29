@@ -41,8 +41,8 @@ def run(args):
     problem_dimension = '2D'
     supervision = 'supervised' if trial_name[0:2] == 'su' else 'unsupervised'; print('supervision:', supervision)
 
-    trained_model_filename = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models/model-' + str(epoch)+ '.pt')
-    save_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
+    trained_model_filename = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models/model-' + str(epoch)+ '.pt')
+    save_folder = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'pred_images'); os.makedirs(save_folder, exist_ok=True)
 
     # bias 
     beta = 0

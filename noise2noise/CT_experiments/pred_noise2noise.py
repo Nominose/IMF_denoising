@@ -41,7 +41,7 @@ def run(args):
     input_condition = args.input  #'both', 'odd', 'even', 'all'
     print('noise type:', args.noise_type)
 
-    study_folder = '/gpfs/work/aac/xingyiyao23/results'
+    study_folder = '/gpfs/work/aac/xingyiyao23/projects'
 
     trained_model_filename = os.path.join(study_folder,trial_name, 'models/model-' + str(epoch)+ '.pt')
     save_folder = os.path.join(study_folder, trial_name, 'pred_images_input_'+ input_condition) 

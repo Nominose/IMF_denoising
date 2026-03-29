@@ -168,7 +168,7 @@ generator_val = G(
 # ======================================================================
 # CHANGE 4:  Use fm.Trainer instead of ddpm.Trainer
 # ======================================================================
-save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/results', trial_name, 'models')
+save_models_folder = os.path.join('/gpfs/work/aac/xingyiyao23/projects', trial_name, 'models')
 ff.make_folder([os.path.dirname(save_models_folder), save_models_folder])
 
 # BEFORE:  trainer = ddpm.Trainer(...)

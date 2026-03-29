@@ -41,7 +41,7 @@ def run(args):
     supervision = 'supervised' if trial_name[:2] == 'su' else 'unsupervised'
     print('supervision:', supervision)
 
-    study_folder = '/gpfs/work/aac/xingyiyao23/results'
+    study_folder = '/gpfs/work/aac/xingyiyao23/projects'
     trained_model_filename = os.path.join(study_folder, trial_name, 'models', f'model-{epoch}.pt')
     save_folder = os.path.join(study_folder, trial_name, f'pred_images_input_{input_condition}')
     os.makedirs(save_folder, exist_ok=True)
