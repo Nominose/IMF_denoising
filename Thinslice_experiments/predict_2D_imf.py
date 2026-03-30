@@ -40,7 +40,7 @@ def run(args):
     condition_channel = 2
     print('supervision:', supervision)
 
-    study_folder = '/gpfs/work/aac/xingyiyao23/projects'
+    study_folder = '/gpfs/work/aac/xingyiyao23/projects/denoising'
     trained_model_filename = os.path.join(study_folder, trial_name, 'models/model-' + str(epoch) + '.pt')
     save_folder = os.path.join(study_folder, trial_name, 'pred_images_nfe' + str(args.num_steps))
     os.makedirs(save_folder, exist_ok=True)
