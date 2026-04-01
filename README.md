@@ -10,8 +10,8 @@ N2NDM trains a diffusion model to sample from `p(x2|x1)`, where `{x1, x2}` is a 
 ### iMF (Our Acceleration)
 We replace the cDDPM backbone in N2NDM with improved Mean Flow (iMF), a flow matching model that supports few-step sampling. Key advantages:
 
-- **Single-stage training**: No distillation needed, K is a flexible inference-time hyperparameter (vs N2NDM which requires a two-stage pipeline and fixes K at distillation time)
-- **Comparable speed**: K=20 requires 60 NFE, similar to N2NDM distilled (50 NFE), but without the distillation overhead
+- **17x speedup vs non-distilled N2NDM**: K=20 requires only 60 NFE vs 1,000 NFE (K=20 × DDIM 50-step)
+- **No distillation needed**: K is a flexible inference-time hyperparameter. N2NDM requires a two-stage pipeline (base + distillation) and fixes K at distillation time
 - **NFE analysis**: We prove NFE=1 collapses to posterior mean (equivalent to N2N regression). NFE=1 to NFE=2 is a **qualitative leap** (from zero to non-zero diversity), while NFE=2 to NFE=3 provides further quantitative improvement
 
 ## Results on Simulated Thin-slice Brain CT
