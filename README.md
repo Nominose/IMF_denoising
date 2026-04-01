@@ -10,8 +10,8 @@ N2NDM trains a diffusion model to sample from `p(x2|x1)`, where `{x1, x2}` is a 
 ### iMF (Our Acceleration)
 We replace the cDDPM backbone in N2NDM with improved Mean Flow (iMF), a flow matching model that supports few-step sampling. Key advantages:
 
-- **17x speedup**: K=20 denoising requires only 60 NFE (vs 1,000 for N2NDM with DDIM 50-step sampling)
-- **No distillation needed**: K is a flexible inference-time hyperparameter
+- **Single-stage training**: No distillation needed, K is a flexible inference-time hyperparameter (vs N2NDM which requires a two-stage pipeline and fixes K at distillation time)
+- **Comparable speed**: K=20 requires 60 NFE, similar to N2NDM distilled (50 NFE), but without the distillation overhead
 - **NFE analysis**: We prove NFE=1 collapses to posterior mean (equivalent to N2N regression). NFE=1 to NFE=2 is a **qualitative leap** (from zero to non-zero diversity), while NFE=2 to NFE=3 provides further quantitative improvement
 
 ## Results on Simulated Thin-slice Brain CT
@@ -19,7 +19,7 @@ We replace the cDDPM backbone in N2NDM with improved Mean Flow (iMF), a flow mat
 | Method | MAE (↓) | SSIM (↑) | LPIPS (↓) | Total NFE (K=20) |
 |--------|---------|----------|-----------|-------------------|
 | FBP (noisy) | 6.28±0.61 | 0.412±0.055 | 0.154±0.025 | - |
-| N2NDM (distilled cDDPM) | 2.98±0.32 | 0.763±0.028 | 0.047±0.009 | 1 (but K fixed) |
+| N2NDM (distilled cDDPM, DDIM 50-step) | 2.98±0.32 | 0.763±0.028 | 0.047±0.009 | 50 (K fixed at distillation) |
 | Ours (iMF, K=1) | 4.08±0.43 | 0.582±0.027 | 0.085±0.016 | 3 |
 | Ours (iMF, K=10) | 3.09±0.42 | 0.747±0.033 | 0.061±0.010 | 30 |
 | **Ours (iMF, K=20)** | **3.02±0.43** | **0.761±0.034** | **0.064±0.011** | **60** |
