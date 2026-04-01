@@ -3,6 +3,8 @@ predict_2D_imf.py — Brain CT thin-slice denoising inference with improved Mean
 
 Usage:
   python predict_2D_imf.py --epoch 30 --mode pred --iteration_num 20 --num_steps 3
+  python predict_2D_imf.py --epoch 30 --mode pred --num_steps 3 --solver heun
+  python predict_2D_imf.py --epoch 30 --mode pred --num_steps 3 --schedule optimal
   python predict_2D_imf.py --epoch 30 --mode avg
 """
 import sys
