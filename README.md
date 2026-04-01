@@ -30,7 +30,7 @@ Metrics computed on brain tissue window [0, 100] HU, 16 test cases.
 
 | Method | MAE | SSIM | LPIPS | Total NFE (K=20) |
 |--------|------|------|-------|-------------------|
-| N2NDM (distilled cDDPM) | 11.4±1.1 | 0.765±0.014 | 0.045±0.009 | 1 (but K fixed) |
+| N2NDM (distilled cDDPM, DDIM 50-step) | 11.4±1.1 | 0.765±0.014 | 0.045±0.009 | 50 (K fixed at distillation) |
 | **Ours (iMF, K=20)** | **12.22±0.98** | **0.747±0.017** | **0.053±0.011** | **60** |
 
 Metrics computed on abdominal window [-160, 240] HU.
