@@ -488,7 +488,6 @@ class Trainer(object):
                 print(f"learning rate: {self.scheduler.get_last_lr()[0]}", flush=True)
 
                 avg_loss = []
-                avg_loss_u = []
                 avg_loss_lpips = []
                 self.opt.zero_grad()
                 torch.cuda.empty_cache()
