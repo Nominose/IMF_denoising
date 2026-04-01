@@ -16,11 +16,13 @@ We replace the cDDPM backbone in N2NDM with improved Mean Flow (iMF), a flow mat
 
 ## Results on Simulated Thin-slice Brain CT
 
-| Method | MAE | SSIM | LPIPS | Total NFE (K=20) |
-|--------|------|------|-------|-------------------|
-| FBP (noisy) | 6.28 | 0.412 | 0.154 | - |
+| Method | MAE (↓) | SSIM (↑) | LPIPS (↓) | Total NFE (K=20) |
+|--------|---------|----------|-----------|-------------------|
+| FBP (noisy) | 6.28±0.61 | 0.412±0.055 | 0.154±0.025 | - |
 | N2NDM (distilled cDDPM) | 2.98±0.32 | 0.763±0.028 | 0.047±0.009 | 1 (but K fixed) |
-| **Ours (iMF, K=20)** | **3.02** | **0.761** | **0.064** | **60** |
+| Ours (iMF, K=1) | 4.08±0.43 | 0.582±0.027 | 0.085±0.016 | 3 |
+| Ours (iMF, K=10) | 3.09±0.42 | 0.747±0.033 | 0.061±0.010 | 30 |
+| **Ours (iMF, K=20)** | **3.02±0.43** | **0.761±0.034** | **0.064±0.011** | **60** |
 
 Metrics computed on brain tissue window [0, 100] HU, 16 test cases.
 
