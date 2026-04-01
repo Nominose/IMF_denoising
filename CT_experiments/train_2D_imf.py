@@ -17,7 +17,7 @@ import IMF_denoising.Generator as Generator
 from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
 
 # ========== Parameters ==========
-trial_name = 'imf_unsupervised_gaussian_mayo'
+trial_name = 'imf_v2_unsupervised_gaussian_mayo'
 problem_dimension = '2D'
 supervision = 'unsupervised'
 
@@ -59,16 +59,18 @@ base_model = Unet(
     downsample_list=(True, True, True, False),
     upsample_list=(True, True, True, False),
     full_attn=(None, None, False, True),
+    auxiliary_v_head=True,
 )
 
 # ========== improved MeanFlow ==========
 diffusion_model = imf.ImprovedMeanFlow(
     base_model,
     image_size=patch_size,
-    ratio_r_neq_t=0.50,        # 50% of samples use MeanFlow, 50% use FM
+    ratio_r_neq_t=0.50,
     clip_or_not=False,
     auto_normalize=False,
-    adaptive_weight_power=1.0,  # p=1.0 as recommended by iMF paper
+    adaptive_weight_power=1.0,
+    v_loss_weight=0.5,
 )
 
 # ========== Data generators ==========
@@ -145,6 +147,8 @@ trainer = imf.Trainer(
     train_lr_decay_every=200,
     save_models_every=5,
     validation_every=5,
+    lpips_weight=0.02,
+    edge_weight=0.05,
 )
 
 trainer.train(
