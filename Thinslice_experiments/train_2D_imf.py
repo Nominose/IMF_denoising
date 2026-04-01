@@ -79,7 +79,6 @@ diffusion_model = imf.ImprovedMeanFlow(
     auto_normalize=False,
     adaptive_weight_power=1.0,
     v_loss_weight=0.5,
-    edge_weight=0.05,
 )
 
 # ========== Data generators ==========
