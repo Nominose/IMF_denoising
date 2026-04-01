@@ -478,6 +478,7 @@ class Trainer(object):
 
         training_log = []
         val_loss = float("inf")
+        val_total = float("inf")
         val_lpips = 0.0
         val_edge = 0.0
 
@@ -564,14 +565,15 @@ class Trainer(object):
                         val_loss = sum(vl) / len(vl)
                         val_lpips = sum(vl_lpips) / len(vl_lpips) if vl_lpips else 0.0
                         val_edge = sum(vl_edge) / len(vl_edge) if vl_edge else 0.0
-                        print(f"  val loss={val_loss:.4f} | val_lpips={val_lpips:.4f} | val_edge={val_edge:.4f}")
+                        val_total = val_loss + self.edge_weight * val_edge + self.lpips_weight * val_lpips
+                        print(f"  val_total={val_total:.4f} | val_forward={val_loss:.4f} | val_lpips={val_lpips:.4f} | val_edge={val_edge:.4f}")
                     self.model.train(True)
 
                 training_log.append([
-                    self.step, self.scheduler.get_last_lr()[0], avg_loss, val_loss, avg_lpips, val_lpips, val_edge,
+                    self.step, self.scheduler.get_last_lr()[0], avg_loss, val_loss, val_total, avg_lpips, val_lpips, val_edge,
                 ])
                 df = pd.DataFrame(training_log, columns=[
-                    "iteration", "lr", "train_loss", "val_loss", "train_lpips", "val_lpips", "val_edge",
+                    "iteration", "lr", "train_loss", "val_forward", "val_total", "train_lpips", "val_lpips", "val_edge",
                 ])
                 log_dir = os.path.join(os.path.dirname(self.results_folder), "log")
                 ff.make_folder([log_dir])
