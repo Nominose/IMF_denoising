@@ -308,7 +308,12 @@ class ImprovedMeanFlow(nn.Module):
         return z0
 
     @torch.inference_mode()
-    def sample_multistep(self, condition=None, batch_size=16, num_steps=2):
+    def sample_multistep(self, condition=None, batch_size=16, num_steps=2, solver='euler'):
+        """
+        Multi-step sampling from t=1 (noise) to t=0 (data).
+        solver: 'euler' (1st order), 'midpoint' (2nd order), 'heun' (2nd order)
+        Note: midpoint and heun use 2x function evaluations per step.
+        """
         device = self.device
 
         if self.problem_dimension == "2D":
@@ -323,11 +328,34 @@ class ImprovedMeanFlow(nn.Module):
         for i in range(num_steps):
             t_val = ts[i]
             r_val = ts[i + 1]
+            dt = t_val - r_val
             t_batch = torch.full((batch_size,), t_val, device=device)
             r_batch = torch.full((batch_size,), r_val, device=device)
-            u = self._fn_u(z, r_batch, t_batch, condition)
-            dt = t_val - r_val
-            z = z - dt * u
+
+            if solver == 'euler':
+                u = self._fn_u(z, r_batch, t_batch, condition)
+                z = z - dt * u
+
+            elif solver == 'midpoint':
+                # Step 1: half step with Euler
+                u1 = self._fn_u(z, r_batch, t_batch, condition)
+                z_mid = z - (dt / 2) * u1
+                # Step 2: full step with midpoint velocity
+                t_mid = torch.full((batch_size,), (t_val + r_val) / 2, device=device)
+                r_mid = r_batch
+                u2 = self._fn_u(z_mid, r_mid, t_mid, condition)
+                z = z - dt * u2
+
+            elif solver == 'heun':
+                # Step 1: predict with Euler
+                u1 = self._fn_u(z, r_batch, t_batch, condition)
+                z_pred = z - dt * u1
+                # Step 2: correct with average velocity
+                u2 = self._fn_u(z_pred, r_batch, r_batch, condition)
+                z = z - dt * (u1 + u2) / 2
+
+            else:
+                raise ValueError(f"Unknown solver: {solver}. Use 'euler', 'midpoint', or 'heun'.")
 
         z = self._maybe_clip(z)
         z = self.unnormalize(z)
@@ -630,6 +658,7 @@ class Sampler(object):
         need_change_dim=True,
         need_denormalize=True,
         num_steps=1,
+        solver='euler',
     ):
         bg = self.background_cutoff
         mx = self.maximum_cutoff
@@ -669,7 +698,7 @@ class Sampler(object):
                 if num_steps == 1:
                     out = sampling_model.sample(condition=data_cond, batch_size=self.batch_size)
                 else:
-                    out = sampling_model.sample_multistep(condition=data_cond, batch_size=self.batch_size, num_steps=num_steps)
+                    out = sampling_model.sample_multistep(condition=data_cond, batch_size=self.batch_size, num_steps=num_steps, solver=solver)
                 pred[:, :, z] = out[0, 0].detach().cpu().numpy()
 
         if need_change_dim:

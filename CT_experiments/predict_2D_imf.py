@@ -28,6 +28,7 @@ def get_args_parser():
     parser.add_argument('--slice_range', type=str, default="100-200")
     parser.add_argument('--iteration_num', type=int, default=20)
     parser.add_argument('--num_steps', type=int, default=1, help='NFE per sample: 1 for one-step, 2+ for multistep')
+    parser.add_argument('--solver', type=str, default='euler', choices=['euler', 'midpoint', 'heun'], help='ODE solver type')
     return parser
 
 
@@ -171,7 +172,7 @@ def run(args):
                     original_model_ref = sampler.model
                     try:
                         sampler.model = sampler.ema.ema_model
-                        pred_img = sampler.sample_2D(trained_model_filename, condition_img, direct_use_of_model=True, num_steps=args.num_steps)
+                        pred_img = sampler.sample_2D(trained_model_filename, condition_img, direct_use_of_model=True, num_steps=args.num_steps, solver=args.solver)
                     finally:
                         sampler.model = original_model_ref
 
