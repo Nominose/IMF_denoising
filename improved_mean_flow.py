@@ -308,10 +308,11 @@ class ImprovedMeanFlow(nn.Module):
         return z0
 
     @torch.inference_mode()
-    def sample_multistep(self, condition=None, batch_size=16, num_steps=2, solver='euler'):
+    def sample_multistep(self, condition=None, batch_size=16, num_steps=2, solver='euler', schedule='uniform'):
         """
         Multi-step sampling from t=1 (noise) to t=0 (data).
         solver: 'euler' (1st order), 'midpoint' (2nd order), 'heun' (2nd order)
+        schedule: 'uniform' or 'optimal' (toy-model optimized non-uniform steps)
         Note: midpoint and heun use 2x function evaluations per step.
         """
         device = self.device
@@ -323,7 +324,11 @@ class ImprovedMeanFlow(nn.Module):
 
         z = torch.randn(shape, device=device)
 
-        ts = torch.linspace(1.0, 0.0, num_steps + 1, device=device)
+        if schedule == 'optimal':
+            from IMF_denoising.optimal_schedule import get_schedule
+            ts = torch.tensor(get_schedule(num_steps, 'optimal'), device=device, dtype=z.dtype)
+        else:
+            ts = torch.linspace(1.0, 0.0, num_steps + 1, device=device)
 
         for i in range(num_steps):
             t_val = ts[i]
@@ -659,6 +664,7 @@ class Sampler(object):
         need_denormalize=True,
         num_steps=1,
         solver='euler',
+        schedule='uniform',
     ):
         bg = self.background_cutoff
         mx = self.maximum_cutoff
@@ -698,7 +704,7 @@ class Sampler(object):
                 if num_steps == 1:
                     out = sampling_model.sample(condition=data_cond, batch_size=self.batch_size)
                 else:
-                    out = sampling_model.sample_multistep(condition=data_cond, batch_size=self.batch_size, num_steps=num_steps, solver=solver)
+                    out = sampling_model.sample_multistep(condition=data_cond, batch_size=self.batch_size, num_steps=num_steps, solver=solver, schedule=schedule)
                 pred[:, :, z] = out[0, 0].detach().cpu().numpy()
 
         if need_change_dim:
