@@ -12,14 +12,14 @@ We replace the cDDPM backbone in N2NDM with improved Mean Flow (iMF), a flow mat
 
 - **17x speedup**: K=20 denoising requires only 60 NFE (vs 1,000 for N2NDM with DDIM 50-step sampling)
 - **No distillation needed**: K is a flexible inference-time hyperparameter
-- **NFE=3 is theoretically optimal**: We prove NFE=1 collapses to posterior mean (equivalent to N2N regression), and NFE>=3 recovers sample diversity
+- **NFE analysis**: We prove NFE=1 collapses to posterior mean (equivalent to N2N regression). NFE=1 to NFE=2 is a **qualitative leap** (from zero to non-zero diversity), while NFE=2 to NFE=3 provides further quantitative improvement
 
 ## Results on Simulated Thin-slice Brain CT
 
 | Method | MAE | SSIM | LPIPS | Total NFE (K=20) |
 |--------|------|------|-------|-------------------|
 | FBP (noisy) | 6.28 | 0.412 | 0.154 | - |
-| N2NDM (DDIM 50-step) | 2.98 | 0.763 | - | 1,000 |
+| N2NDM (distilled cDDPM) | 2.98±0.32 | 0.763±0.028 | 0.047±0.009 | 1 (but K fixed) |
 | **Ours (iMF, K=20)** | **3.02** | **0.761** | **0.064** | **60** |
 
 Metrics computed on brain tissue window [0, 100] HU, 16 test cases.
@@ -28,7 +28,7 @@ Metrics computed on brain tissue window [0, 100] HU, 16 test cases.
 
 | Method | MAE | SSIM | LPIPS | Total NFE (K=20) |
 |--------|------|------|-------|-------------------|
-| N2NDM (DDIM 50-step) | 11.37 | 0.765 | 0.045 | 1,000 |
+| N2NDM (distilled cDDPM) | 11.4±1.1 | 0.765±0.014 | 0.045±0.009 | 1 (but K fixed) |
 | **Ours (iMF, K=20)** | **12.22±0.98** | **0.747±0.017** | **0.053±0.011** | **60** |
 
 Metrics computed on abdominal window [-160, 240] HU.
