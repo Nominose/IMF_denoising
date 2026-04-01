@@ -7,8 +7,8 @@ import pandas as pd
 import nibabel as nb
 from skimage.measure import block_reduce
 
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Data_processing as Data_processing
 
 data_path = '/mnt/camca_NAS/Portable_CT_data'
 save_path = '/mnt/camca_NAS/denoising/Data'

@@ -23,11 +23,11 @@ import numpy as np
 import nibabel as nb
 from ema_pytorch import EMA
 
-import Diffusion_denoising_thin_slice.conditional_flow_matching as fm
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator as Generator
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
+import IMF_denoising.conditional_flow_matching as fm
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator as Generator
+import IMF_denoising.Data_processing as Data_processing
 
 
 def get_args_parser():

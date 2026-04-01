@@ -1,12 +1,12 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/host/c/Users/ROG/Documents/GitHub')
 import os
 import torch
 import numpy as np 
-import Diffusion_denoising_thin_slice.Thinslice_experiments.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator_thinslice as Generator
+import IMF_denoising.Thinslice_experiments.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator_thinslice as Generator
 
 trial_name = 'supervised_gaussian_brainCT' 
 problem_dimension = '2D'
@@ -95,8 +95,8 @@ generator_train = Generator.Dataset_2D(
         patch_size = patch_size,
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
+        bins = None if histogram_equalization == False else np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins_mapped.npy'),
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
         normalize_factor = normalize_factor,
@@ -120,8 +120,8 @@ generator_val = Generator.Dataset_2D(
         patch_size = [512,512],
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
+        bins = None if histogram_equalization == False else np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins_mapped.npy'),
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
         normalize_factor = normalize_factor,)

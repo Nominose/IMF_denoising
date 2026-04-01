@@ -1,14 +1,14 @@
 import sys
-sys.path.append('/host/d/Github')
+sys.path.append('/host/c/Users/ROG/Documents/GitHub')
 import os
 import torch
 import argparse
 import numpy as np 
 import nibabel as nb
-import Diffusion_denoising_thin_slice.Thinslice_experiments.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator_thinslice as Generator 
+import IMF_denoising.Thinslice_experiments.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator_thinslice as Generator 
 
 
 
@@ -144,8 +144,8 @@ def run(args):
                     slice_range = [slice_start, slice_end],
 
                     histogram_equalization = histogram_equalization,
-                    bins = np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy'),
-                    bins_mapped = np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy'),
+                    bins = np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins.npy'),
+                    bins_mapped = np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins_mapped.npy'),
                     background_cutoff = background_cutoff,
                     maximum_cutoff = maximum_cutoff,
                     normalize_factor = normalize_factor,)

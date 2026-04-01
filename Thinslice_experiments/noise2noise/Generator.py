@@ -9,8 +9,8 @@ from skimage.measure import block_reduce
 
 import torch
 from torch.utils.data import Dataset
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
-import Diffusion_denoising_thin_slice.functions_collection as ff
+import IMF_denoising.Data_processing as Data_processing
+import IMF_denoising.functions_collection as ff
 
 # histogram equalization pre-saved load
 bins = np.load('/mnt/camca_NAS/denoising/Data/histogram_equalization/bins.npy')

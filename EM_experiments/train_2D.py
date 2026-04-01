@@ -1,14 +1,14 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/host/c/Users/ROG/Documents/GitHub')
 import os
 import torch
 import numpy as np 
 import nibabel as nb
-import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
-import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_EDM as edm
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator_EM as Generator_EM
+import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
+import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_EDM as edm
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator_EM as Generator_EM
 
 trial_name = 'unsupervised_gaussian_EM_range01_try'
 problem_dimension = '2D'

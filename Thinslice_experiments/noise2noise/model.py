@@ -31,9 +31,9 @@ from ema_pytorch import EMA
 
 from accelerate import Accelerator
 
-from Diffusion_denoising_thin_slice.noise2noise.attend import Attend
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
+from IMF_denoising.noise2noise.attend import Attend
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Data_processing as Data_processing
 
 
 # constants

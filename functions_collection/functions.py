@@ -7,7 +7,7 @@ import SimpleITK as sitk
 import cv2
 import random
 import nibabel as nb
-import Diffusion_denoising_thin_slice.Data_processing as dp
+import IMF_denoising.Data_processing as dp
 from skimage.metrics import structural_similarity as compare_ssim
 # import CTProjector.src.ct_projector.projector.numpy as ct_projector
 

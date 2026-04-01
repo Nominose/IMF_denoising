@@ -1,14 +1,14 @@
 # make sure you have Github copilot installed, search it in the VSCode extension marketplace, it will make your coding much easier
 import sys 
-sys.path.append('/host/d/Github/')
+sys.path.append('/host/c/Users/ROG/Documents/GitHub')
 import os
 import torch
 import numpy as np
 import nibabel as nb
-import Diffusion_denoising_thin_slice.noise2noise.Thinslice_experiments.model_previous_version as noise2noise
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.noise2noise.Thinslice_experiments.Generator as Generator 
+import IMF_denoising.noise2noise.Thinslice_experiments.model_previous_version as noise2noise
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.noise2noise.Thinslice_experiments.Generator as Generator 
 
 trial_name = 'noise2noise_brainCT' 
 epoch = 78
@@ -74,8 +74,8 @@ for i in range(0, n.shape[0]):
     
 
     # # generator
-    bins = np.load('/host/d/Github/CTDenoising_Diffusion_N2N/example_data/histogram_equalization/bins.npy') 
-    bins_mapped = np.load('/host/d/Github/CTDenoising_Diffusion_N2N/example_data/histogram_equalization/bins_mapped.npy')
+    bins = np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins.npy') 
+    bins_mapped = np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins_mapped.npy')
     generator = Generator.Dataset_2D(
         img_list = np.array([condition_file]),
         image_size = image_size,

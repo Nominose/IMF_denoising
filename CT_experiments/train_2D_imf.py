@@ -10,11 +10,11 @@ import os
 import torch
 import numpy as np
 
-import Diffusion_denoising_thin_slice.improved_mean_flow as imf
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator as Generator
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
+import IMF_denoising.improved_mean_flow as imf
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator as Generator
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
 
 # ========== Parameters ==========
 trial_name = 'imf_unsupervised_gaussian_mayo'

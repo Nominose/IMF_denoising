@@ -7,10 +7,10 @@ import os
 import torch
 import numpy as np
 
-import Diffusion_denoising_thin_slice.conditional_flow_matching as fm
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator as Generator
+import IMF_denoising.conditional_flow_matching as fm
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator as Generator
 
 # ========== 参数 ==========
 trial_name = 'flow_matching_unsupervised_gaussian_mayo'

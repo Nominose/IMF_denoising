@@ -1,14 +1,14 @@
 import sys
-sys.path.append('/host/d/Github')
+sys.path.append('/host/c/Users/ROG/Documents/GitHub')
 import os
 import torch
 import argparse
 import numpy as np
 import nibabel as nb
-import Diffusion_denoising_thin_slice.noise2noise.model as noise2noise
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator_MR as Generator_MR
+import IMF_denoising.noise2noise.model as noise2noise
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator_MR as Generator_MR
 
 
 

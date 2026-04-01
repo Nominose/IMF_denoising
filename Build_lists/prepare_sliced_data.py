@@ -1,10 +1,10 @@
 import sys 
-sys.path.append('/host/d/Github')
+sys.path.append('/host/c/Users/ROG/Documents/GitHub')
 import os
 import torch
 import numpy as np 
 import nibabel as nb
-import Diffusion_denoising_thin_slice.functions_collection as ff
+import IMF_denoising.functions_collection as ff
 
 
 def prepare_sliced_data():

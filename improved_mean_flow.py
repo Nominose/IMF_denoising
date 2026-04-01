@@ -21,7 +21,7 @@ from accelerate import Accelerator
 from functools import partial
 import lpips
 
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import (
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import (
     Unet,
     exists,
     default,
@@ -30,9 +30,9 @@ from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffus
     cycle,
     SinusoidalPosEmb,
 )
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Data_processing as Data_processing
 
 
 # =============================================================================

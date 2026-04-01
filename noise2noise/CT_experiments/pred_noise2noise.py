@@ -1,14 +1,14 @@
 import sys
-sys.path.append('/host/d/Github')
+sys.path.append('/host/c/Users/ROG/Documents/GitHub')
 import os
 import torch
 import argparse
 import numpy as np
 import nibabel as nb
-import Diffusion_denoising_thin_slice.noise2noise.model as noise2noise
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator as Generator
+import IMF_denoising.noise2noise.model as noise2noise
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator as Generator
 
 
 def get_args_parser():
@@ -150,8 +150,8 @@ def run(args):
                 slice_range = [100,200],# None,
                 
                 histogram_equalization = histogram_equalization,
-                bins = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_lowdoseCT.npy'),
-                bins_mapped = None if histogram_equalization == False else np.load('/host/d/Github/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
+                bins = None if histogram_equalization == False else np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins_lowdoseCT.npy'),
+                bins_mapped = None if histogram_equalization == False else np.load('/host/c/Users/ROG/Documents/GitHub/IMF_denoising/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
                 background_cutoff = background_cutoff,
                 maximum_cutoff = maximum_cutoff,
                 normalize_factor = normalize_factor,)
