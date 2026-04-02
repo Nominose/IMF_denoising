@@ -91,21 +91,10 @@ def evaluate_cddpm(args):
         force_ddim=True,
     )
 
-    # Load checkpoint with EMA weights
-    from ema_pytorch import EMA
+    # Load checkpoint
     data = torch.load(model_path, map_location=device)
     diffusion_model.load_state_dict(data['model'])
     diffusion_model = diffusion_model.to(device)
-
-    # Use EMA model for evaluation (same as CT experiments)
-    ema = EMA(diffusion_model)
-    ema.to(device)
-    if 'ema' in data:
-        ema.load_state_dict(data['ema'])
-        diffusion_model = ema.ema_model
-        print('Using EMA weights for evaluation')
-    else:
-        print('No EMA found in checkpoint, using raw model')
     diffusion_model.eval()
 
     test_images, names = load_test_images(args.test_dir)
