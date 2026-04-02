@@ -131,13 +131,14 @@ def train_n2n(args):
         mode='train',
     )
 
-    # Same U-Net architecture but WITHOUT time embedding (direct regression)
+    # Same U-Net architecture as cDDPM (identical parameters for fair comparison)
     model = ddpm.Unet(
         problem_dimension='2D',
         init_dim=64,
         out_dim=1,
         channels=1,
-        conditional_diffusion=False,  # No condition channel, input is x1 directly
+        conditional_diffusion=True,  # Same architecture as cDDPM
+        condition_channels=1,
         downsample_list=(True, True, True, False),
         upsample_list=(True, True, True, False),
         full_attn=(None, None, False, True),
@@ -170,9 +171,9 @@ def train_n2n(args):
             x2 = x2.to(device)
 
             # N2N regression: predict x2 from x1
-            # UNet expects (x, time) but we use a dummy time=0
+            # Use x1 as both input and condition (same architecture as cDDPM)
             dummy_time = torch.zeros(x1.shape[0], device=device)
-            pred = model(x1, dummy_time)
+            pred = model(x1, dummy_time, x1)
 
             loss = nn.functional.mse_loss(pred, x2)
 
@@ -195,7 +196,7 @@ def train_n2n(args):
                     vx1 = vx1.to(device)
                     vx2 = vx2.to(device)
                     dummy_time = torch.zeros(vx1.shape[0], device=device)
-                    vpred = model(vx1, dummy_time)
+                    vpred = model(vx1, dummy_time, vx1)
                     vl.append(nn.functional.mse_loss(vpred, vx2).item())
             val_loss = np.mean(vl)
             print(f'Epoch {epoch} | train_loss={avg_loss:.6f} | val_loss={val_loss:.6f}')

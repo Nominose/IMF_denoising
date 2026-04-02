@@ -164,13 +164,14 @@ def evaluate_n2n(args):
     trial_name = f'n2n_baseline_sigma{args.sigma}'
     model_path = os.path.join(args.save_dir, trial_name, 'models', f'model-{args.epoch}.pt')
 
-    # Build model (same architecture, no condition)
+    # Build model (same architecture as cDDPM for fair comparison)
     model = ddpm.Unet(
         problem_dimension='2D',
         init_dim=64,
         out_dim=1,
         channels=1,
-        conditional_diffusion=False,
+        conditional_diffusion=True,
+        condition_channels=1,
         downsample_list=(True, True, True, False),
         upsample_list=(True, True, True, False),
         full_attn=(None, None, False, True),
@@ -197,7 +198,7 @@ def evaluate_n2n(args):
             x = torch.from_numpy(noisy_norm).unsqueeze(0).unsqueeze(0).to(device)
 
             dummy_time = torch.zeros(1, device=device)
-            pred_norm = model(x, dummy_time)
+            pred_norm = model(x, dummy_time, x)
 
             pred = (pred_norm[0, 0].cpu().numpy() + 1.0) / 2.0
             pred = np.clip(pred, 0, 1)
