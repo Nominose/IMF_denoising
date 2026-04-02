@@ -2,15 +2,15 @@
 Evaluate cDDPM (various NFE) and N2N baseline on BSD68.
 
 Usage:
-    # cDDPM with different NFE
-    python evaluate_natural.py --method cddpm --sigma 25 --epoch 200 --nfe 1
-    python evaluate_natural.py --method cddpm --sigma 25 --epoch 200 --nfe 2
-    python evaluate_natural.py --method cddpm --sigma 25 --epoch 200 --nfe 5
-    python evaluate_natural.py --method cddpm --sigma 25 --epoch 200 --nfe 10
-    python evaluate_natural.py --method cddpm --sigma 25 --epoch 200 --nfe 50
+    # cDDPM with different NFE (DDIM sampling)
+    python evaluate_natural.py --method cddpm --sigma 50 --epoch 200 --nfe 1
+    python evaluate_natural.py --method cddpm --sigma 50 --epoch 200 --nfe 2
+    python evaluate_natural.py --method cddpm --sigma 50 --epoch 200 --nfe 5
+    python evaluate_natural.py --method cddpm --sigma 50 --epoch 200 --nfe 10
+    python evaluate_natural.py --method cddpm --sigma 50 --epoch 200 --nfe 50
 
     # N2N baseline
-    python evaluate_natural.py --method n2n --sigma 25 --epoch 200
+    python evaluate_natural.py --method n2n --sigma 50 --epoch 200
 """
 import sys
 sys.path.append('/host/c/Users/ROG/Documents/GitHub')
@@ -37,22 +37,23 @@ def get_args():
                         default='/host/c/Users/ROG/Documents/GitHub/IMF_denoising/natural_image_experiments/data/denoising-datasets/BSD68/original')
     parser.add_argument('--save_dir', type=str,
                         default='/host/d/projects/denoising/models/natural_image')
+    parser.add_argument('--save_images', action='store_true', help='Save denoised images')
     return parser.parse_args()
 
 
 def load_test_images(test_dir):
-    """Load BSD68 test images as grayscale numpy arrays in [0,1]."""
     paths = sorted(glob.glob(os.path.join(test_dir, '*.png')))
     images = []
+    names = []
     for p in paths:
         img = np.array(Image.open(p).convert('L'), dtype=np.float32) / 255.0
         images.append(img)
+        names.append(os.path.basename(p))
     print(f'Loaded {len(images)} test images')
-    return images
+    return images, names
 
 
 def compute_metrics(pred, clean, data_range=1.0):
-    """Compute PSNR and SSIM."""
     psnr = peak_signal_noise_ratio(clean, pred, data_range=data_range)
     ssim = structural_similarity(clean, pred, data_range=data_range)
     return psnr, ssim
@@ -65,7 +66,7 @@ def evaluate_cddpm(args):
     trial_name = f'cddpm_n2n_sigma{args.sigma}'
     model_path = os.path.join(args.save_dir, trial_name, 'models', f'model-{args.epoch}.pt')
 
-    # Build model
+    # Build model (same as training)
     model = ddpm.Unet(
         problem_dimension='2D',
         init_dim=64,
@@ -80,12 +81,14 @@ def evaluate_cddpm(args):
 
     diffusion_model = ddpm.GaussianDiffusion(
         model,
-        image_size=[256, 256],  # dummy, we use full images
+        image_size=[256, 256],  # dummy, actual size determined by input
         timesteps=1000,
         sampling_timesteps=args.nfe,
         objective='pred_x0',
         clip_or_not=False,
         auto_normalize=False,
+        ddim_sampling_eta=0.0,  # deterministic DDIM
+        force_ddim=True,
     )
 
     # Load checkpoint
@@ -94,18 +97,20 @@ def evaluate_cddpm(args):
     diffusion_model = diffusion_model.to(device)
     diffusion_model.eval()
 
-    # Load test images
-    test_images = load_test_images(args.test_dir)
+    test_images, names = load_test_images(args.test_dir)
+
+    # Output dir
+    result_dir = os.path.join(args.save_dir, trial_name, f'results_nfe{args.nfe}')
+    os.makedirs(result_dir, exist_ok=True)
 
     results = []
-    noisy_results = []
 
-    with torch.no_grad():
+    with torch.inference_mode():
         for i, clean in enumerate(test_images):
             h, w = clean.shape
 
-            # Generate noisy input
-            np.random.seed(i)  # reproducible noise
+            # Generate noisy input (fixed seed for reproducibility)
+            np.random.seed(i + 1000)
             n1 = np.random.randn(h, w).astype(np.float32) * sigma
             noisy = clean + n1
 
@@ -113,48 +118,44 @@ def evaluate_cddpm(args):
             noisy_norm = (noisy * 2.0 - 1.0).astype(np.float32)
             cond = torch.from_numpy(noisy_norm).unsqueeze(0).unsqueeze(0).to(device)
 
-            # DDIM sampling
-            if args.nfe == 1:
-                # For pred_x0, single step from T
-                # Use the model's internal single-step prediction
-                noise = torch.randn(1, 1, h, w, device=device)
-                t = torch.full((1,), diffusion_model.num_timesteps - 1, device=device, dtype=torch.long)
-                pred_norm = diffusion_model.model(
-                    torch.cat([noise, cond], dim=1) if diffusion_model.model.conditional_diffusion
-                    else noise, t, cond
-                )
-                # Actually, let's use the proper sampling interface
-                pred_norm = diffusion_model.ddim_sample(cond=cond, shape=(1, 1, h, w))
-            else:
-                pred_norm = diffusion_model.ddim_sample(cond=cond, shape=(1, 1, h, w))
+            # DDIM sampling: pass condition, sample from noise
+            shape = (1, 1, h, w)
+            pred_norm = diffusion_model.ddim_sample(shape, condition=cond)
 
             # Denormalize back to [0,1]
             pred = (pred_norm[0, 0].cpu().numpy() + 1.0) / 2.0
             pred = np.clip(pred, 0, 1)
 
-            # Metrics
-            psnr, ssim = compute_metrics(pred, clean)
+            # Metrics vs clean
+            psnr_pred, ssim_pred = compute_metrics(pred, clean)
             psnr_noisy, ssim_noisy = compute_metrics(np.clip(noisy, 0, 1), clean)
 
-            results.append({'image': i, 'psnr': psnr, 'ssim': ssim})
-            noisy_results.append({'image': i, 'psnr': psnr_noisy, 'ssim': ssim_noisy})
+            results.append({
+                'image': names[i],
+                'psnr_denoised': psnr_pred,
+                'ssim_denoised': ssim_pred,
+                'psnr_noisy': psnr_noisy,
+                'ssim_noisy': ssim_noisy,
+            })
 
             if i % 10 == 0:
-                print(f'Image {i}: PSNR={psnr:.2f} (noisy: {psnr_noisy:.2f}), SSIM={ssim:.4f} (noisy: {ssim_noisy:.4f})')
+                print(f'{names[i]}: PSNR={psnr_pred:.2f} (noisy: {psnr_noisy:.2f}), SSIM={ssim_pred:.4f}')
+
+            # Save images
+            if args.save_images:
+                Image.fromarray((pred * 255).astype(np.uint8)).save(os.path.join(result_dir, f'denoised_{names[i]}'))
+                if i == 0:
+                    Image.fromarray((np.clip(noisy, 0, 1) * 255).astype(np.uint8)).save(os.path.join(result_dir, f'noisy_{names[i]}'))
+                    Image.fromarray((clean * 255).astype(np.uint8)).save(os.path.join(result_dir, f'clean_{names[i]}'))
 
     df = pd.DataFrame(results)
     print(f'\n=== cDDPM NFE={args.nfe} sigma={args.sigma} ===')
-    print(f'PSNR: {df["psnr"].mean():.2f} +/- {df["psnr"].std():.2f}')
-    print(f'SSIM: {df["ssim"].mean():.4f} +/- {df["ssim"].std():.4f}')
+    print(f'PSNR: {df["psnr_denoised"].mean():.2f} +/- {df["psnr_denoised"].std():.2f}')
+    print(f'SSIM: {df["ssim_denoised"].mean():.4f} +/- {df["ssim_denoised"].std():.4f}')
+    print(f'Noisy: PSNR={df["psnr_noisy"].mean():.2f}, SSIM={df["ssim_noisy"].mean():.4f}')
 
-    df_noisy = pd.DataFrame(noisy_results)
-    print(f'\nNoisy input:')
-    print(f'PSNR: {df_noisy["psnr"].mean():.2f}, SSIM: {df_noisy["ssim"].mean():.4f}')
-
-    # Save results
-    result_dir = os.path.join(args.save_dir, trial_name, 'results')
-    os.makedirs(result_dir, exist_ok=True)
-    df.to_excel(os.path.join(result_dir, f'results_nfe{args.nfe}.xlsx'), index=False)
+    df.to_excel(os.path.join(result_dir, 'metrics.xlsx'), index=False)
+    print(f'Results saved to {result_dir}')
 
 
 def evaluate_n2n(args):
@@ -164,7 +165,7 @@ def evaluate_n2n(args):
     trial_name = f'n2n_baseline_sigma{args.sigma}'
     model_path = os.path.join(args.save_dir, trial_name, 'models', f'model-{args.epoch}.pt')
 
-    # Build model (same architecture as cDDPM for fair comparison)
+    # Same architecture as cDDPM
     model = ddpm.Unet(
         problem_dimension='2D',
         init_dim=64,
@@ -182,15 +183,18 @@ def evaluate_n2n(args):
     model = model.to(device)
     model.eval()
 
-    test_images = load_test_images(args.test_dir)
+    test_images, names = load_test_images(args.test_dir)
+
+    result_dir = os.path.join(args.save_dir, trial_name, 'results')
+    os.makedirs(result_dir, exist_ok=True)
 
     results = []
 
-    with torch.no_grad():
+    with torch.inference_mode():
         for i, clean in enumerate(test_images):
             h, w = clean.shape
 
-            np.random.seed(i)
+            np.random.seed(i + 1000)
             n1 = np.random.randn(h, w).astype(np.float32) * sigma
             noisy = clean + n1
 
@@ -198,25 +202,35 @@ def evaluate_n2n(args):
             x = torch.from_numpy(noisy_norm).unsqueeze(0).unsqueeze(0).to(device)
 
             dummy_time = torch.zeros(1, device=device)
-            pred_norm = model(x, dummy_time, x)
+            pred_norm = model(x, dummy_time, x)  # x as both input and condition
 
             pred = (pred_norm[0, 0].cpu().numpy() + 1.0) / 2.0
             pred = np.clip(pred, 0, 1)
 
-            psnr, ssim = compute_metrics(pred, clean)
-            results.append({'image': i, 'psnr': psnr, 'ssim': ssim})
+            psnr_pred, ssim_pred = compute_metrics(pred, clean)
+            psnr_noisy, ssim_noisy = compute_metrics(np.clip(noisy, 0, 1), clean)
+
+            results.append({
+                'image': names[i],
+                'psnr_denoised': psnr_pred,
+                'ssim_denoised': ssim_pred,
+                'psnr_noisy': psnr_noisy,
+                'ssim_noisy': ssim_noisy,
+            })
 
             if i % 10 == 0:
-                print(f'Image {i}: PSNR={psnr:.2f}, SSIM={ssim:.4f}')
+                print(f'{names[i]}: PSNR={psnr_pred:.2f} (noisy: {psnr_noisy:.2f}), SSIM={ssim_pred:.4f}')
+
+            if args.save_images:
+                Image.fromarray((pred * 255).astype(np.uint8)).save(os.path.join(result_dir, f'denoised_{names[i]}'))
 
     df = pd.DataFrame(results)
     print(f'\n=== N2N Baseline sigma={args.sigma} ===')
-    print(f'PSNR: {df["psnr"].mean():.2f} +/- {df["psnr"].std():.2f}')
-    print(f'SSIM: {df["ssim"].mean():.4f} +/- {df["ssim"].std():.4f}')
+    print(f'PSNR: {df["psnr_denoised"].mean():.2f} +/- {df["psnr_denoised"].std():.2f}')
+    print(f'SSIM: {df["ssim_denoised"].mean():.4f} +/- {df["ssim_denoised"].std():.4f}')
 
-    result_dir = os.path.join(args.save_dir, trial_name, 'results')
-    os.makedirs(result_dir, exist_ok=True)
-    df.to_excel(os.path.join(result_dir, f'results.xlsx'), index=False)
+    df.to_excel(os.path.join(result_dir, 'metrics.xlsx'), index=False)
+    print(f'Results saved to {result_dir}')
 
 
 if __name__ == '__main__':
