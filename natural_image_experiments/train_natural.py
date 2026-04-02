@@ -50,23 +50,8 @@ def train_cddpm(args):
         mode='train',
     )
 
-    # Use last 40 images from BSD400 as val, first 360 as train
-    # BSD68 is strictly held-out for final testing only
-    dataset_val = NaturalImageDataset(
-        image_dir=args.data_dir,
-        noise_sigma=args.sigma,
-        patch_size=args.patch_size,
-        num_patches_per_image=1,
-        augment=False,
-        mode='train',
-        split='val',  # last 40 images
-    )
-
-    # Override train to use only first 360
-    dataset_train.images = dataset_train.images[:360]
-    dataset_train.image_paths = dataset_train.image_paths[:360]
-
-    print(f'Train: {len(dataset_train.images)} images, Val: {len(dataset_val.images)} images')
+    # No separate validation — standard practice (DnCNN, FFDNet, etc.)
+    # BSD400 for training, BSD68 held-out for final testing only
 
     # Model: same U-Net as CT experiments
     model = ddpm.Unet(
@@ -98,7 +83,7 @@ def train_cddpm(args):
     trainer = ddpm.Trainer(
         diffusion_model=diffusion_model,
         generator_train=dataset_train,
-        generator_val=dataset_val,
+        generator_val=dataset_train,  # no separate val; use train set for monitoring only
         train_batch_size=args.batch_size,
         accum_iter=1,
         train_num_steps=args.epochs,
@@ -106,7 +91,7 @@ def train_cddpm(args):
         train_lr=args.lr,
         train_lr_decay_every=args.epochs,
         save_models_every=10,
-        validation_every=10,
+        validation_every=args.epochs + 1,  # effectively no validation
     )
 
     trainer.train(pre_trained_model=None, start_step=0, beta=0, lpips_weight=0, edge_weight=0)
@@ -131,21 +116,7 @@ def train_n2n(args):
         mode='train',
     )
 
-    # Use last 40 images from BSD400 as val (same as cDDPM)
-    dataset_val = NaturalImageDataset(
-        image_dir=args.data_dir,
-        noise_sigma=args.sigma,
-        patch_size=args.patch_size,
-        num_patches_per_image=1,
-        augment=False,
-        mode='train',
-        split='val',
-    )
-
-    dataset_train.images = dataset_train.images[:360]
-    dataset_train.image_paths = dataset_train.image_paths[:360]
-
-    print(f'Train: {len(dataset_train.images)} images, Val: {len(dataset_val.images)} images')
+    # No separate validation set — same as cDDPM and standard practice
 
     # Same U-Net architecture as cDDPM (identical parameters for fair comparison)
     model = ddpm.Unet(
@@ -168,7 +139,6 @@ def train_n2n(args):
     max_grad_norm = 1.0  # same as cDDPM Trainer
 
     dl_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True)  # same as cDDPM Trainer
-    dl_val = DataLoader(dataset_val, batch_size=1, shuffle=False, num_workers=0)
 
     save_dir = os.path.join(args.save_dir, trial_name, 'models')
     ff.make_folder([os.path.dirname(save_dir), save_dir])
@@ -176,7 +146,6 @@ def train_n2n(args):
     ff.make_folder([log_dir])
 
     training_log = []
-    best_val_loss = float('inf')
 
     for epoch in tqdm(range(1, args.epochs + 1)):
         model.train()
@@ -203,21 +172,8 @@ def train_n2n(args):
 
         avg_loss = np.mean(epoch_loss)
 
-        # Validation
-        val_loss = float('inf')
         if epoch % 10 == 0:
-            model.eval()
-            vl = []
-            with torch.no_grad():
-                for vbatch in dl_val:
-                    vx2, vx1 = vbatch
-                    vx1 = vx1.to(device)
-                    vx2 = vx2.to(device)
-                    dummy_time = torch.zeros(vx1.shape[0], device=device)
-                    vpred = model(vx1, dummy_time, vx1)
-                    vl.append(nn.functional.mse_loss(vpred, vx2).item())
-            val_loss = np.mean(vl)
-            print(f'Epoch {epoch} | train_loss={avg_loss:.6f} | val_loss={val_loss:.6f}')
+            print(f'Epoch {epoch} | train_loss={avg_loss:.6f}')
 
             # Save checkpoint
             torch.save({
