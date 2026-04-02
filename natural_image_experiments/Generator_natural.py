@@ -27,6 +27,7 @@ class NaturalImageDataset(Dataset):
         num_patches_per_image=8,
         augment=True,
         mode='train',  # 'train' or 'test'
+        split=None,  # None=all, 'train'=first 360, 'val'=last 40 (for BSD400)
     ):
         self.noise_sigma = noise_sigma / 255.0  # normalize to [0,1] range
         self.patch_size = patch_size
@@ -41,8 +42,14 @@ class NaturalImageDataset(Dataset):
             self.image_paths.extend(glob.glob(os.path.join(image_dir, ext)))
         self.image_paths.sort()
 
+        # Split if requested
+        if split == 'val':
+            self.image_paths = self.image_paths[-40:]
+        elif split == 'train':
+            self.image_paths = self.image_paths[:360]
+
         assert len(self.image_paths) > 0, f"No images found in {image_dir}"
-        print(f"Loaded {len(self.image_paths)} images from {image_dir}, mode={mode}")
+        print(f"Loaded {len(self.image_paths)} images from {image_dir}, mode={mode}, split={split}")
 
         # Preload images
         self.images = []

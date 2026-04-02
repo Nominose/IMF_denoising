@@ -50,14 +50,23 @@ def train_cddpm(args):
         mode='train',
     )
 
+    # Use last 40 images from BSD400 as val, first 360 as train
+    # BSD68 is strictly held-out for final testing only
     dataset_val = NaturalImageDataset(
-        image_dir=args.data_dir.replace('BSD400', 'BSD68/original'),
+        image_dir=args.data_dir,
         noise_sigma=args.sigma,
         patch_size=args.patch_size,
         num_patches_per_image=1,
         augment=False,
-        mode='train',  # still use patches for val loss
+        mode='train',
+        split='val',  # last 40 images
     )
+
+    # Override train to use only first 360
+    dataset_train.images = dataset_train.images[:360]
+    dataset_train.image_paths = dataset_train.image_paths[:360]
+
+    print(f'Train: {len(dataset_train.images)} images, Val: {len(dataset_val.images)} images')
 
     # Model: same U-Net as CT experiments
     model = ddpm.Unet(
@@ -122,14 +131,21 @@ def train_n2n(args):
         mode='train',
     )
 
+    # Use last 40 images from BSD400 as val (same as cDDPM)
     dataset_val = NaturalImageDataset(
-        image_dir=args.data_dir.replace('BSD400', 'BSD68/original'),
+        image_dir=args.data_dir,
         noise_sigma=args.sigma,
         patch_size=args.patch_size,
         num_patches_per_image=1,
         augment=False,
         mode='train',
+        split='val',
     )
+
+    dataset_train.images = dataset_train.images[:360]
+    dataset_train.image_paths = dataset_train.image_paths[:360]
+
+    print(f'Train: {len(dataset_train.images)} images, Val: {len(dataset_val.images)} images')
 
     # Same U-Net architecture as cDDPM (identical parameters for fair comparison)
     model = ddpm.Unet(
@@ -147,10 +163,11 @@ def train_n2n(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
 
-    optimizer = Adam(model.parameters(), lr=args.lr)
+    optimizer = Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.99))  # same as cDDPM Trainer
     scheduler = StepLR(optimizer, step_size=args.epochs, gamma=0.95)
+    max_grad_norm = 1.0  # same as cDDPM Trainer
 
-    dl_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=True)
+    dl_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True)  # same as cDDPM Trainer
     dl_val = DataLoader(dataset_val, batch_size=1, shuffle=False, num_workers=0)
 
     save_dir = os.path.join(args.save_dir, trial_name, 'models')
@@ -179,6 +196,7 @@ def train_n2n(args):
 
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
             optimizer.step()
 
             epoch_loss.append(loss.item())
