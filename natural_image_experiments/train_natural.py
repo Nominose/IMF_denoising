@@ -24,7 +24,7 @@ from IMF_denoising.natural_image_experiments.Generator_natural import NaturalIma
 def get_args():
     parser = argparse.ArgumentParser('Natural Image Denoising')
     parser.add_argument('--method', type=str, required=True, choices=['cddpm', 'n2n'])
-    parser.add_argument('--sigma', type=int, default=25)
+    parser.add_argument('--sigma', type=int, default=50)
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--patch_size', type=int, default=128)

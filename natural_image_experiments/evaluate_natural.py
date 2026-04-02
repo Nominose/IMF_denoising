@@ -30,7 +30,7 @@ import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.con
 def get_args():
     parser = argparse.ArgumentParser('Evaluate Natural Image Denoising')
     parser.add_argument('--method', type=str, required=True, choices=['cddpm', 'n2n'])
-    parser.add_argument('--sigma', type=int, default=25)
+    parser.add_argument('--sigma', type=int, default=50)
     parser.add_argument('--epoch', type=int, required=True)
     parser.add_argument('--nfe', type=int, default=1, help='Number of DDIM steps (only for cddpm)')
     parser.add_argument('--test_dir', type=str,
