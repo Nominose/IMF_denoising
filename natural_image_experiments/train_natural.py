@@ -182,12 +182,12 @@ def train_n2n(args):
                 'optimizer': optimizer.state_dict(),
             }, os.path.join(save_dir, f'model-{epoch}.pt'))
 
-        training_log.append([epoch, avg_loss, val_loss])
+        training_log.append([epoch, avg_loss])
         scheduler.step()
 
     # Save final log
     import pandas as pd
-    df = pd.DataFrame(training_log, columns=['epoch', 'train_loss', 'val_loss'])
+    df = pd.DataFrame(training_log, columns=['epoch', 'train_loss'])
     df.to_excel(os.path.join(log_dir, 'training_log.xlsx'), index=False)
     print(f'N2N training complete. Models saved to {save_dir}')
 
