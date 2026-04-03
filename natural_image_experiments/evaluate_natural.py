@@ -34,7 +34,7 @@ def get_args():
     parser.add_argument('--epoch', type=int, required=True)
     parser.add_argument('--nfe', type=int, default=1, help='Number of DDIM steps (only for cddpm)')
     parser.add_argument('--test_dir', type=str,
-                        default='/host/c/Users/ROG/Documents/GitHub/IMF_denoising/natural_image_experiments/data/BSD68_standard')
+                        default='/host/c/Users/ROG/Documents/GitHub/IMF_denoising/natural_image_experiments/data/denoising-datasets/BSD68/original')
     parser.add_argument('--save_dir', type=str,
                         default='/host/d/projects/denoising/models/natural_image')
     parser.add_argument('--save_images', action='store_true', help='Save denoised images')
@@ -206,6 +206,15 @@ def evaluate_n2n(args):
 
             pred = (pred_norm[0, 0].cpu().numpy() + 1.0) / 2.0
             pred = np.clip(pred, 0, 1)
+
+            # Debug: check value ranges
+            if i == 0:
+                print(f'DEBUG clean: min={clean.min():.4f} max={clean.max():.4f} shape={clean.shape}')
+                print(f'DEBUG noisy: min={noisy.min():.4f} max={noisy.max():.4f}')
+                print(f'DEBUG pred_norm: min={pred_norm[0,0].min().item():.4f} max={pred_norm[0,0].max().item():.4f}')
+                print(f'DEBUG pred (after denorm+clip): min={pred.min():.4f} max={pred.max():.4f}')
+                print(f'DEBUG MSE(pred, clean)={np.mean((pred - clean)**2):.6f}')
+                print(f'DEBUG MSE(noisy_clip, clean)={np.mean((np.clip(noisy,0,1) - clean)**2):.6f}')
 
             psnr_pred, ssim_pred = compute_metrics(pred, clean)
             psnr_noisy, ssim_noisy = compute_metrics(np.clip(noisy, 0, 1), clean)
