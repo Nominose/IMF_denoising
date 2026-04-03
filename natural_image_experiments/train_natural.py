@@ -23,7 +23,7 @@ from IMF_denoising.natural_image_experiments.Generator_natural import NaturalIma
 
 def get_args():
     parser = argparse.ArgumentParser('Natural Image Denoising')
-    parser.add_argument('--method', type=str, required=True, choices=['cddpm', 'n2n'])
+    parser.add_argument('--method', type=str, required=True, choices=['cddpm', 'n2n', 'supervised'])
     parser.add_argument('--sigma', type=int, default=50)
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--batch_size', type=int, default=8)
@@ -192,9 +192,101 @@ def train_n2n(args):
     print(f'N2N training complete. Models saved to {save_dir}')
 
 
+def train_supervised(args):
+    """Train supervised regression (same U-Net, target=clean z). Upper bound reference."""
+    from torch.utils.data import DataLoader
+    from torch.optim import Adam
+    from torch.optim.lr_scheduler import StepLR
+    from tqdm import tqdm
+
+    trial_name = f'supervised_sigma{args.sigma}'
+
+    dataset_train = NaturalImageDataset(
+        image_dir=args.data_dir,
+        noise_sigma=args.sigma,
+        patch_size=args.patch_size,
+        num_patches_per_image=8,
+        augment=True,
+        mode='train',
+        supervised=True,  # target = clean patch
+    )
+
+    # Same U-Net architecture
+    model = ddpm.Unet(
+        problem_dimension='2D',
+        init_dim=64,
+        out_dim=1,
+        channels=1,
+        conditional_diffusion=True,
+        condition_channels=1,
+        downsample_list=(True, True, True, False),
+        upsample_list=(True, True, True, False),
+        full_attn=(None, None, False, True),
+    )
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+
+    optimizer = Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.99))
+    scheduler = StepLR(optimizer, step_size=args.epochs, gamma=0.95)
+    max_grad_norm = 1.0
+
+    dl_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True)
+
+    save_dir = os.path.join(args.save_dir, trial_name, 'models')
+    ff.make_folder([os.path.dirname(save_dir), save_dir])
+    log_dir = os.path.join(args.save_dir, trial_name, 'log')
+    ff.make_folder([log_dir])
+
+    training_log = []
+
+    for epoch in tqdm(range(1, args.epochs + 1)):
+        model.train()
+        epoch_loss = []
+
+        for batch in dl_train:
+            clean, x1 = batch  # clean=target, x1=noisy condition
+            x1 = x1.to(device)
+            clean = clean.to(device)
+
+            # Supervised: predict clean from noisy (same forward as N2N)
+            dummy_time = torch.zeros(x1.shape[0], device=device)
+            pred = model(x1, dummy_time, x1)
+
+            loss = nn.functional.mse_loss(pred, clean)
+
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            optimizer.step()
+
+            epoch_loss.append(loss.item())
+
+        avg_loss = np.mean(epoch_loss)
+
+        if epoch % 10 == 0:
+            print(f'Epoch {epoch} | train_loss={avg_loss:.6f}')
+
+            torch.save({
+                'epoch': epoch,
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            }, os.path.join(save_dir, f'model-{epoch}.pt'))
+
+        training_log.append([epoch, avg_loss])
+        scheduler.step()
+
+    import pandas as pd
+    df = pd.DataFrame(training_log, columns=['epoch', 'train_loss'])
+    df.to_excel(os.path.join(log_dir, 'training_log.xlsx'), index=False)
+    print(f'Supervised training complete. Models saved to {save_dir}')
+
+
 if __name__ == '__main__':
     args = get_args()
     if args.method == 'cddpm':
         train_cddpm(args)
     elif args.method == 'n2n':
         train_n2n(args)
+    elif args.method == 'supervised':
+        train_supervised(args)

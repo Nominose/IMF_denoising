@@ -29,7 +29,7 @@ import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.con
 
 def get_args():
     parser = argparse.ArgumentParser('Evaluate Natural Image Denoising')
-    parser.add_argument('--method', type=str, required=True, choices=['cddpm', 'n2n'])
+    parser.add_argument('--method', type=str, required=True, choices=['cddpm', 'n2n', 'supervised'])
     parser.add_argument('--sigma', type=int, default=50)
     parser.add_argument('--epoch', type=int, required=True)
     parser.add_argument('--nfe', type=int, default=1, help='Number of DDIM steps (only for cddpm)')
@@ -233,9 +233,83 @@ def evaluate_n2n(args):
     print(f'Results saved to {result_dir}')
 
 
+def evaluate_supervised(args):
+    """Evaluate supervised baseline — same code as N2N eval, different trial_name."""
+    args_copy = argparse.Namespace(**vars(args))
+    # Temporarily override to reuse n2n eval logic (same architecture, same inference)
+    original_method = args.method
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    sigma = args.sigma / 255.0
+
+    trial_name = f'supervised_sigma{args.sigma}'
+    model_path = os.path.join(args.save_dir, trial_name, 'models', f'model-{args.epoch}.pt')
+
+    model = ddpm.Unet(
+        problem_dimension='2D',
+        init_dim=64,
+        out_dim=1,
+        channels=1,
+        conditional_diffusion=True,
+        condition_channels=1,
+        downsample_list=(True, True, True, False),
+        upsample_list=(True, True, True, False),
+        full_attn=(None, None, False, True),
+    )
+
+    data = torch.load(model_path, map_location=device)
+    model.load_state_dict(data['model'])
+    model = model.to(device)
+    model.eval()
+
+    test_images, names = load_test_images(args.test_dir)
+    result_dir = os.path.join(args.save_dir, trial_name, 'results')
+    os.makedirs(result_dir, exist_ok=True)
+
+    results = []
+
+    with torch.inference_mode():
+        for i, clean in enumerate(test_images):
+            h, w = clean.shape
+            np.random.seed(i + 1000)
+            n1 = np.random.randn(h, w).astype(np.float32) * sigma
+            noisy = clean + n1
+
+            noisy_norm = (noisy * 2.0 - 1.0).astype(np.float32)
+            x = torch.from_numpy(noisy_norm).unsqueeze(0).unsqueeze(0).to(device)
+
+            dummy_time = torch.zeros(1, device=device)
+            pred_norm = model(x, dummy_time, x)
+
+            pred = (pred_norm[0, 0].cpu().numpy() + 1.0) / 2.0
+            pred = np.clip(pred, 0, 1)
+
+            psnr_pred, ssim_pred = compute_metrics(pred, clean)
+            psnr_noisy, ssim_noisy = compute_metrics(np.clip(noisy, 0, 1), clean)
+
+            results.append({
+                'image': names[i],
+                'psnr_denoised': psnr_pred,
+                'ssim_denoised': ssim_pred,
+                'psnr_noisy': psnr_noisy,
+                'ssim_noisy': ssim_noisy,
+            })
+
+            if i % 10 == 0:
+                print(f'{names[i]}: PSNR={psnr_pred:.2f} (noisy: {psnr_noisy:.2f}), SSIM={ssim_pred:.4f}')
+
+    df = pd.DataFrame(results)
+    print(f'\n=== Supervised sigma={args.sigma} ===')
+    print(f'PSNR: {df["psnr_denoised"].mean():.2f} +/- {df["psnr_denoised"].std():.2f}')
+    print(f'SSIM: {df["ssim_denoised"].mean():.4f} +/- {df["ssim_denoised"].std():.4f}')
+
+    df.to_excel(os.path.join(result_dir, 'metrics.xlsx'), index=False)
+
+
 if __name__ == '__main__':
     args = get_args()
     if args.method == 'cddpm':
         evaluate_cddpm(args)
     elif args.method == 'n2n':
         evaluate_n2n(args)
+    elif args.method == 'supervised':
+        evaluate_supervised(args)

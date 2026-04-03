@@ -28,8 +28,10 @@ class NaturalImageDataset(Dataset):
         augment=True,
         mode='train',  # 'train' or 'test'
         split=None,  # None=all, 'train'=first 360, 'val'=last 40 (for BSD400)
+        supervised=False,  # if True, target is clean (no noise on target)
     ):
         self.noise_sigma = noise_sigma / 255.0  # normalize to [0,1] range
+        self.supervised = supervised
         self.patch_size = patch_size
         self.num_patches_per_image = num_patches_per_image
         self.augment = augment and (mode == 'train')
@@ -97,12 +99,15 @@ class NaturalImageDataset(Dataset):
             if self.augment:
                 patch = self._augment(patch)
 
-            # Generate N2N pair: two independent noise realizations
+            # Generate noisy pair
             n1 = np.random.randn(*patch.shape).astype(np.float32) * self.noise_sigma
-            n2 = np.random.randn(*patch.shape).astype(np.float32) * self.noise_sigma
+            x1 = patch + n1  # condition (always noisy)
 
-            x1 = patch + n1  # condition
-            x2 = patch + n2  # target
+            if self.supervised:
+                x2 = patch.copy()  # target is clean
+            else:
+                n2 = np.random.randn(*patch.shape).astype(np.float32) * self.noise_sigma
+                x2 = patch + n2  # target is noisy (N2N)
 
             # Normalize to [-1, 1] for diffusion model
             x1 = (x1 * 2.0 - 1.0).astype(np.float32)
