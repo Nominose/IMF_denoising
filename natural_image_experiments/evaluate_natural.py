@@ -34,7 +34,7 @@ def get_args():
     parser.add_argument('--epoch', type=int, required=True)
     parser.add_argument('--nfe', type=int, default=1, help='Number of DDIM steps (only for cddpm)')
     parser.add_argument('--test_dir', type=str,
-                        default='/host/c/Users/ROG/Documents/GitHub/IMF_denoising/natural_image_experiments/data/denoising-datasets/BSD68/original')
+                        default='/host/c/Users/ROG/Documents/GitHub/IMF_denoising/natural_image_experiments/data/BSD68_standard')
     parser.add_argument('--save_dir', type=str,
                         default='/host/d/projects/denoising/models/natural_image')
     parser.add_argument('--save_images', action='store_true', help='Save denoised images')
