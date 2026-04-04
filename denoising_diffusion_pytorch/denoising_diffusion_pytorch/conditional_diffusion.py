@@ -452,7 +452,8 @@ class Unet(nn.Module):
         attn_dim_head = 32,
         attn_heads = 4,
         full_attn = (None, None, None, True),
-        flash_attn = False
+        flash_attn = False,
+        auxiliary_v_head = False
     ):
         super().__init__()
 
@@ -555,9 +556,13 @@ class Unet(nn.Module):
 
 
         self.out_dim = out_dim
+        self.auxiliary_v_head = auxiliary_v_head
 
         self.final_res_block = block_klass(init_dim * 2, init_dim, time_emb_dim = time_dim)
-        self.final_conv = conv_layer(init_dim, self.out_dim, 1)  # output channel is initial channel number
+        self.final_conv = conv_layer(init_dim, self.out_dim, 1)  # u-head
+
+        if auxiliary_v_head:
+            self.final_conv_v = conv_layer(init_dim, self.out_dim, 1)  # v-head
 
 
     @property
@@ -608,9 +613,13 @@ class Unet(nn.Module):
         x = torch.cat((x, r), dim = 1)
 
         x = self.final_res_block(x, t)
-        final_image = self.final_conv(x)
-      
-        return final_image
+        u = self.final_conv(x)
+
+        if self.auxiliary_v_head:
+            v = self.final_conv_v(x)
+            return u, v
+
+        return u
 
 # gaussian diffusion trainer class 
  

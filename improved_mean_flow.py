@@ -1,8 +1,12 @@
 """
-improved MeanFlow (iMF) for Noise2Noise CT Denoising — v3 + debug.
+improved MeanFlow (iMF) for Noise2Noise CT Denoising — v4.
 
-DEBUG version: flush=True prints in forward() and train loop.
-Remove prints after debugging.
+Changes from v3:
+- True auxiliary v-head support (_fn_uv / _fn_u split)
+- JVP strictly on u-branch only
+- forward returns (loss_forward, V, target_v, x0_pred, img_norm)
+- Trainer supports edge_weight and lpips_weight (image-domain losses)
+- LPIPS lives in Trainer, not in model (avoids EMA/checkpoint pollution)
 """
 
 import math
@@ -19,9 +23,8 @@ from tqdm.auto import tqdm
 from ema_pytorch import EMA
 from accelerate import Accelerator
 from functools import partial
-import lpips
 
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import (
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import (
     Unet,
     exists,
     default,
@@ -30,9 +33,9 @@ from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffus
     cycle,
     SinusoidalPosEmb,
 )
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Data_processing as Data_processing
 
 
 # =============================================================================
@@ -72,6 +75,7 @@ class UnetWithInterval(nn.Module):
         self.channels = base_unet.channels
         self.conditional_diffusion = base_unet.conditional_diffusion
         self.problem_dimension = base_unet.problem_dimension
+        self.has_v_head = getattr(base_unet, 'auxiliary_v_head', False)
 
         with torch.no_grad():
             dummy_t = torch.zeros(1)
@@ -116,10 +120,12 @@ class ImprovedMeanFlow(nn.Module):
         clip_range=None,
         auto_normalize=False,
         adaptive_weight_power=1.0,
+        v_loss_weight=0.5,
     ):
         super().__init__()
 
         self.wrapped_model = UnetWithInterval(model)
+        self.has_v_head = self.wrapped_model.has_v_head
 
         self.channels = self.wrapped_model.channels
         self.conditional_diffusion = self.wrapped_model.conditional_diffusion
@@ -127,6 +133,7 @@ class ImprovedMeanFlow(nn.Module):
         self.image_size = image_size
         self.ratio_r_neq_t = ratio_r_neq_t
         self.adaptive_weight_power = adaptive_weight_power
+        self.v_loss_weight = v_loss_weight
 
         self.clip_or_not = clip_or_not
         self.clip_range = clip_range or [-1, 1]
@@ -168,13 +175,44 @@ class ImprovedMeanFlow(nn.Module):
 
         return r, t
 
-    def _fn(self, z, r, t, condition=None):
+    def _fn_uv(self, z, r, t, condition=None):
+        """Full forward: returns (u, v) if v-head exists, else (u, None)."""
         if self.conditional_diffusion and not exists(condition):
             raise ValueError("Conditional model but no condition provided.")
         if self.conditional_diffusion:
-            return self.wrapped_model(z, r, t, condition)
+            out = self.wrapped_model(z, r, t, condition)
         else:
-            return self.wrapped_model(z, r, t)
+            out = self.wrapped_model(z, r, t)
+
+        if isinstance(out, tuple):
+            return out  # (u, v)
+        return out, None  # (u, None)
+
+    def _fn_u(self, z, r, t, condition=None):
+        """U-only forward: returns u tensor. Used for JVP and sampling."""
+        if self.conditional_diffusion and not exists(condition):
+            raise ValueError("Conditional model but no condition provided.")
+        if self.conditional_diffusion:
+            out = self.wrapped_model(z, r, t, condition)
+        else:
+            out = self.wrapped_model(z, r, t)
+
+        if isinstance(out, tuple):
+            return out[0]  # only u
+        return out
+
+    def _adaptive_weighted_loss(self, error):
+        """Compute per-sample MSE with adaptive weighting."""
+        reduce_dims = tuple(range(1, error.ndim))
+        loss_raw = (error ** 2).mean(dim=reduce_dims)
+
+        if self.adaptive_weight_power > 0:
+            eps_aw = 1e-2
+            p = self.adaptive_weight_power
+            denom = (loss_raw.detach() + eps_aw) ** p
+            return (loss_raw / denom).mean()
+        else:
+            return loss_raw.mean()
 
     def forward(self, img, condition=None, *args, **kwargs):
         img_norm = self.normalize(img)
@@ -194,13 +232,23 @@ class ImprovedMeanFlow(nn.Module):
         z = (1.0 - t_expand) * img_norm + t_expand * e
         target_v = e - img_norm
 
-        # Step 1: v = fn(z, t, t) — boundary condition
-        with torch.no_grad():
-            v_pred = self._fn(z, t, t, condition)
+        # Step 1: Get v for tangent vector
+        # Official iMF: JVP uses v as tangent, with has_aux to get v from same forward pass
+        if self.has_v_head:
+            # Get v_pred for tangent (need it before JVP)
+            # This is one extra forward, but v_pred needs to be detached for tangent anyway
+            v_pred = self._fn_u(z, t, t, condition).detach()  # boundary condition: v = u(z,t,t)
+        else:
+            with torch.no_grad():
+                v_pred = self._fn_u(z, t, t, condition)
 
-        # Step 2: JVP
+        # Step 2: JVP on u-branch, with v-head as auxiliary output
         def fn_for_jvp(z_in, r_in, t_in):
-            return self._fn(z_in, r_in, t_in, condition)
+            if self.has_v_head:
+                u_out, v_out = self._fn_uv(z_in, r_in, t_in, condition)
+                return u_out, v_out  # u = primal, v = aux
+            else:
+                return self._fn_u(z_in, r_in, t_in, condition)
 
         z_jvp = z.detach().requires_grad_(True)
         r_jvp = r.detach().requires_grad_(True)
@@ -210,38 +258,46 @@ class ImprovedMeanFlow(nn.Module):
         tangents = (v_pred.detach(), torch.zeros_like(r), torch.ones_like(t))
 
         try:
-            u, dudt = torch.func.jvp(fn_for_jvp, primals, tangents)
+            if self.has_v_head:
+                u, dudt, v_from_jvp = torch.func.jvp(
+                    fn_for_jvp, primals, tangents, has_aux=True
+                )
+                loss_v = self._adaptive_weighted_loss(v_from_jvp - target_v)
+            else:
+                u, dudt = torch.func.jvp(fn_for_jvp, primals, tangents)
+                loss_v = torch.tensor(0.0, device=device)
         except Exception as ex:
             self._jvp_fallback_count += 1
             if self._jvp_fallback_count <= 5:
                 print(f"[WARN] jvp failed (count={self._jvp_fallback_count}): {ex}", flush=True)
             elif self._jvp_fallback_count == 6:
                 print("[WARN] jvp keeps failing, suppressing further warnings", flush=True)
-            u = self._fn(z, r, t, condition)
+            u = self._fn_u(z, r, t, condition)
             eps_fd = 1e-4
-            u_plus = self._fn(
+            u_plus = self._fn_u(
                 z + eps_fd * v_pred.detach(), r, t + eps_fd, condition
             )
             dudt = (u_plus - u) / eps_fd
+            if self.has_v_head:
+                _, v_from_jvp = self._fn_uv(z, r, t, condition)
+                loss_v = self._adaptive_weighted_loss(v_from_jvp - target_v)
+            else:
+                loss_v = torch.tensor(0.0, device=device)
 
-        # Step 3
+        # Step 3: Compound function V
         interval = t_expand - r_expand
         V = u + interval * dudt.detach()
 
-        # Step 4: v-loss with official adaptive weighting
-        error = V - target_v
-        reduce_dims = tuple(range(1, error.ndim))
-        loss_raw = (error ** 2).mean(dim=reduce_dims)
+        # Step 4: loss_u (v-loss with adaptive weighting)
+        loss_u = self._adaptive_weighted_loss(V - target_v)
 
-        if self.adaptive_weight_power > 0:
-            eps_aw = 1e-2
-            p = self.adaptive_weight_power
-            denom = (loss_raw.detach() + eps_aw) ** p
-            loss = (loss_raw / denom).mean()
-        else:
-            loss = loss_raw.mean()
+        # Step 5: Reconstruct x0_pred for image-domain losses (computed in Trainer)
+        x0_pred = z - t_expand * V
 
-        return loss, V, target_v
+        # Step 6: Total forward loss (edge and LPIPS are added by Trainer)
+        loss_forward = loss_u + self.v_loss_weight * loss_v
+
+        return loss_forward, V, target_v, x0_pred, img_norm
 
     @torch.inference_mode()
     def sample(self, condition=None, batch_size=16):
@@ -257,7 +313,7 @@ class ImprovedMeanFlow(nn.Module):
         r = torch.zeros(batch_size, device=device)
         t = torch.ones(batch_size, device=device)
 
-        u = self._fn(z1, r, t, condition)
+        u = self._fn_u(z1, r, t, condition)
 
         z0 = z1 - u
         z0 = self._maybe_clip(z0)
@@ -266,7 +322,13 @@ class ImprovedMeanFlow(nn.Module):
         return z0
 
     @torch.inference_mode()
-    def sample_multistep(self, condition=None, batch_size=16, num_steps=2):
+    def sample_multistep(self, condition=None, batch_size=16, num_steps=2, solver='euler', schedule='uniform'):
+        """
+        Multi-step sampling from t=1 (noise) to t=0 (data).
+        solver: 'euler' (1st order), 'midpoint' (2nd order), 'heun' (2nd order)
+        schedule: 'uniform' or 'optimal' (toy-model optimized non-uniform steps)
+        Note: midpoint and heun use 2x function evaluations per step.
+        """
         device = self.device
 
         if self.problem_dimension == "2D":
@@ -276,16 +338,43 @@ class ImprovedMeanFlow(nn.Module):
 
         z = torch.randn(shape, device=device)
 
-        ts = torch.linspace(1.0, 0.0, num_steps + 1, device=device)
+        if schedule == 'optimal':
+            from IMF_denoising.optimal_schedule import get_schedule
+            ts = torch.tensor(get_schedule(num_steps, 'optimal'), device=device, dtype=z.dtype)
+        else:
+            ts = torch.linspace(1.0, 0.0, num_steps + 1, device=device)
 
         for i in range(num_steps):
             t_val = ts[i]
             r_val = ts[i + 1]
+            dt = t_val - r_val
             t_batch = torch.full((batch_size,), t_val, device=device)
             r_batch = torch.full((batch_size,), r_val, device=device)
-            u = self._fn(z, r_batch, t_batch, condition)
-            dt = t_val - r_val
-            z = z - dt * u
+
+            if solver == 'euler':
+                u = self._fn_u(z, r_batch, t_batch, condition)
+                z = z - dt * u
+
+            elif solver == 'midpoint':
+                # Step 1: half step with Euler
+                u1 = self._fn_u(z, r_batch, t_batch, condition)
+                z_mid = z - (dt / 2) * u1
+                # Step 2: full step with midpoint velocity
+                t_mid = torch.full((batch_size,), (t_val + r_val) / 2, device=device)
+                r_mid = r_batch
+                u2 = self._fn_u(z_mid, r_mid, t_mid, condition)
+                z = z - dt * u2
+
+            elif solver == 'heun':
+                # Step 1: predict with Euler
+                u1 = self._fn_u(z, r_batch, t_batch, condition)
+                z_pred = z - dt * u1
+                # Step 2: correct with average velocity
+                u2 = self._fn_u(z_pred, r_batch, r_batch, condition)
+                z = z - dt * (u1 + u2) / 2
+
+            else:
+                raise ValueError(f"Unknown solver: {solver}. Use 'euler', 'midpoint', or 'heun'.")
 
         z = self._maybe_clip(z)
         z = self.unnormalize(z)
@@ -339,7 +428,7 @@ class Trainer(object):
         self.dl = self.accelerator.prepare(dl)
 
         self.ds_val = generator_val
-        dl_val = DataLoader(self.ds_val, batch_size=train_batch_size, shuffle=False, pin_memory=True, num_workers=0)
+        dl_val = DataLoader(self.ds_val, batch_size=1, shuffle=False, pin_memory=True, num_workers=0)
         self.dl_val = self.accelerator.prepare(dl_val)
 
         self.opt = Adam(diffusion_model.parameters(), lr=train_lr, betas=adam_betas)
@@ -420,8 +509,9 @@ class Trainer(object):
                     data_cond = batch_cond.to(device) if self.conditional_diffusion else None
 
                     with self.accelerator.autocast():
-                        loss, V, target_v = self.model(img=data_x0, condition=data_cond)
-                        loss = loss / self.accum_iter
+                        loss_forward, V, target_v, x0_pred, img_norm = self.model(img=data_x0, condition=data_cond)
+
+                    loss = loss_forward / self.accum_iter
 
                     self.accelerator.backward(loss)
 
@@ -459,7 +549,7 @@ class Trainer(object):
                             vx0 = vx0.to(device)
                             vcond = vcond.to(device) if self.conditional_diffusion else None
                             with self.accelerator.autocast():
-                                vloss, _, _ = self.model(img=vx0, condition=vcond)
+                                vloss, _, _, _, _ = self.model(img=vx0, condition=vcond)
                             vl.append(vloss.item())
                         val_loss = sum(vl) / len(vl)
                         print(f"  val loss={val_loss:.4f}")
@@ -527,6 +617,8 @@ class Sampler(object):
         need_change_dim=True,
         need_denormalize=True,
         num_steps=1,
+        solver='euler',
+        schedule='uniform',
     ):
         bg = self.background_cutoff
         mx = self.maximum_cutoff
@@ -566,7 +658,7 @@ class Sampler(object):
                 if num_steps == 1:
                     out = sampling_model.sample(condition=data_cond, batch_size=self.batch_size)
                 else:
-                    out = sampling_model.sample_multistep(condition=data_cond, batch_size=self.batch_size, num_steps=num_steps)
+                    out = sampling_model.sample_multistep(condition=data_cond, batch_size=self.batch_size, num_steps=num_steps, solver=solver, schedule=schedule)
                 pred[:, :, z] = out[0, 0].detach().cpu().numpy()
 
         if need_change_dim:

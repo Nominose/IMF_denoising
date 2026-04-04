@@ -13,11 +13,11 @@ import torch
 import numpy as np
 import nibabel as nb
 
-import Diffusion_denoising_thin_slice.improved_mean_flow as imf
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator_thinslice as Generator
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
+import IMF_denoising.improved_mean_flow as imf
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator_thinslice as Generator
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
 
 
 def get_args_parser():
@@ -28,6 +28,8 @@ def get_args_parser():
     parser.add_argument('--slice_range', type=str, default="30-80")
     parser.add_argument('--iteration_num', type=int, default=20)
     parser.add_argument('--num_steps', type=int, default=3, help='NFE per sample: 1 for one-step, 3 recommended for N2N')
+    parser.add_argument('--solver', type=str, default='euler', choices=['euler', 'midpoint', 'heun'])
+    parser.add_argument('--schedule', type=str, default='uniform', choices=['uniform', 'optimal'])
     return parser
 
 
@@ -167,7 +169,7 @@ def run(args):
                 original_model_ref = sampler.model
                 try:
                     sampler.model = sampler.ema.ema_model
-                    pred_img = sampler.sample_2D(trained_model_filename, condition_img, direct_use_of_model=True, num_steps=args.num_steps)
+                    pred_img = sampler.sample_2D(trained_model_filename, condition_img, direct_use_of_model=True, num_steps=args.num_steps, solver=args.solver, schedule=args.schedule)
                 finally:
                     sampler.model = original_model_ref
 

@@ -10,11 +10,11 @@ import os
 import torch
 import numpy as np
 
-import Diffusion_denoising_thin_slice.improved_mean_flow as imf
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator as Generator
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
+import IMF_denoising.improved_mean_flow as imf
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator as Generator
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
 
 # ========== Parameters ==========
 trial_name = 'imf_unsupervised_gaussian_mayo'
@@ -59,16 +59,18 @@ base_model = Unet(
     downsample_list=(True, True, True, False),
     upsample_list=(True, True, True, False),
     full_attn=(None, None, False, True),
+    auxiliary_v_head=True,
 )
 
 # ========== improved MeanFlow ==========
 diffusion_model = imf.ImprovedMeanFlow(
     base_model,
     image_size=patch_size,
-    ratio_r_neq_t=0.50,        # 50% of samples use MeanFlow, 50% use FM
+    ratio_r_neq_t=0.50,
     clip_or_not=False,
     auto_normalize=False,
-    adaptive_weight_power=1.0,  # p=1.0 as recommended by iMF paper
+    adaptive_weight_power=1.0,
+    v_loss_weight=0.5,
 )
 
 # ========== Data generators ==========
