@@ -23,7 +23,7 @@ problem_dimension = '2D'
 supervision = 'unsupervised'
 
 condition_channel = 2
-train_batch_size = 4
+train_batch_size = 2
 pre_trained_model = None
 start_step = 0
 
@@ -137,8 +137,6 @@ trainer = imf.Trainer(
     train_lr_decay_every=200,
     save_models_every=5,
     validation_every=5,
-    lpips_weight=0.02,
-    edge_weight=0.05,
 )
 
 trainer.train(

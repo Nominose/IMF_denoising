@@ -23,7 +23,6 @@ from tqdm.auto import tqdm
 from ema_pytorch import EMA
 from accelerate import Accelerator
 from functools import partial
-import lpips
 
 from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import (
     Unet,
@@ -408,8 +407,6 @@ class Trainer(object):
         mixed_precision_type="fp16",
         split_batches=True,
         max_grad_norm=1.0,
-        lpips_weight=0.0,
-        edge_weight=0.0,
     ):
         super().__init__()
 
@@ -450,17 +447,6 @@ class Trainer(object):
         self.model, self.opt = self.accelerator.prepare(self.model, self.opt)
         self.validation_every = validation_every
 
-        # LPIPS in Trainer (not in model) — avoids EMA/checkpoint pollution
-        self.lpips_weight = lpips_weight
-        self.edge_weight = edge_weight
-        if lpips_weight > 0:
-            self.lpips_fn = lpips.LPIPS(net='alex').to(self.device)
-            self.lpips_fn.eval()
-            for p in self.lpips_fn.parameters():
-                p.requires_grad = False
-        else:
-            self.lpips_fn = None
-
     @property
     def device(self):
         return self.accelerator.device
@@ -492,25 +478,6 @@ class Trainer(object):
         if exists(self.accelerator.scaler) and exists(data.get("scaler")):
             self.accelerator.scaler.load_state_dict(data["scaler"])
 
-    def _compute_lpips(self, x0_pred, img_norm):
-        """Compute LPIPS loss in float32, outside autocast. Uses clamped inputs."""
-        with torch.cuda.amp.autocast(enabled=False):
-            pred_3ch = x0_pred.float().clamp(-1, 1).repeat(1, 3, 1, 1) if x0_pred.shape[1] == 1 else x0_pred.float().clamp(-1, 1)
-            target_3ch = img_norm.float().clamp(-1, 1).repeat(1, 3, 1, 1) if img_norm.shape[1] == 1 else img_norm.float().clamp(-1, 1)
-            return self.lpips_fn(pred_3ch, target_3ch).mean()
-
-    def _compute_edge_loss(self, pred, target):
-        """Sobel-based edge loss in image domain. Uses unclamped inputs."""
-        if pred.dim() == 4:
-            sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=pred.dtype, device=pred.device).view(1, 1, 3, 3)
-            sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=pred.dtype, device=pred.device).view(1, 1, 3, 3)
-            edge_pred = torch.sqrt(F.conv2d(pred, sobel_x, padding=1) ** 2 + F.conv2d(pred, sobel_y, padding=1) ** 2 + 1e-6)
-            edge_target = torch.sqrt(F.conv2d(target, sobel_x, padding=1) ** 2 + F.conv2d(target, sobel_y, padding=1) ** 2 + 1e-6)
-        else:
-            edge_pred = pred
-            edge_target = target
-        return F.mse_loss(edge_pred, edge_target)
-
     def train(self, pre_trained_model=None, start_step=None):
         accelerator = self.accelerator
         device = accelerator.device
@@ -526,9 +493,6 @@ class Trainer(object):
 
         training_log = []
         val_loss = float("inf")
-        val_total = float("inf")
-        val_lpips = 0.0
-        val_edge = 0.0
 
         with tqdm(initial=self.step, total=self.train_num_steps, disable=not accelerator.is_main_process) as pbar:
             while self.step < self.train_num_steps:
@@ -536,7 +500,6 @@ class Trainer(object):
                 print(f"learning rate: {self.scheduler.get_last_lr()[0]}", flush=True)
 
                 avg_loss = []
-                avg_loss_lpips = []
                 self.opt.zero_grad()
                 torch.cuda.empty_cache()
 
@@ -548,22 +511,9 @@ class Trainer(object):
                     with self.accelerator.autocast():
                         loss_forward, V, target_v, x0_pred, img_norm = self.model(img=data_x0, condition=data_cond)
 
-                    # Image-domain losses (computed in Trainer, outside autocast)
-                    aux_loss = torch.tensor(0.0, device=device)
+                    loss = loss_forward / self.accum_iter
 
-                    if self.edge_weight > 0:
-                        edge_loss = self._compute_edge_loss(x0_pred, img_norm)
-                        aux_loss = aux_loss + self.edge_weight * edge_loss
-
-                    if self.lpips_weight > 0 and self.lpips_fn is not None:
-                        lpips_loss = self._compute_lpips(x0_pred, img_norm)
-                        aux_loss = aux_loss + self.lpips_weight * lpips_loss
-                    else:
-                        lpips_loss = torch.tensor(0.0, device=device)
-
-                    total_loss = (loss_forward + aux_loss) / self.accum_iter
-
-                    self.accelerator.backward(total_loss)
+                    self.accelerator.backward(loss)
 
                     if ((count + 1) % self.accum_iter == 0) or (count == len(self.dl) - 1):
                         accelerator.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
@@ -571,13 +521,11 @@ class Trainer(object):
                         self.opt.zero_grad()
 
                     if count % 200 == 0:
-                        print(f"  epoch {self.step+1} | batch {count} | loss {total_loss.item():.4f} | lpips {lpips_loss.item():.4f}", flush=True)
+                        print(f"  epoch {self.step+1} | batch {count} | loss {loss.item():.4f}", flush=True)
 
-                    avg_loss.append(total_loss.item() * self.accum_iter)
-                    avg_loss_lpips.append(lpips_loss.item())
+                    avg_loss.append(loss.item() * self.accum_iter)
 
                 avg_loss = sum(avg_loss) / len(avg_loss)
-                avg_lpips = sum(avg_loss_lpips) / len(avg_loss_lpips)
                 pbar.set_description(f"loss:{avg_loss:.4f}")
 
                 accelerator.wait_for_everyone()
@@ -596,31 +544,22 @@ class Trainer(object):
                     self.model.eval()
                     with torch.no_grad():
                         vl = []
-                        vl_lpips = []
-                        vl_edge = []
                         for vbatch in self.dl_val:
                             vx0, vcond = vbatch
                             vx0 = vx0.to(device)
                             vcond = vcond.to(device) if self.conditional_diffusion else None
                             with self.accelerator.autocast():
-                                vloss, _, _, vx0_pred, vimg_norm = self.model(img=vx0, condition=vcond)
+                                vloss, _, _, _, _ = self.model(img=vx0, condition=vcond)
                             vl.append(vloss.item())
-                            if self.edge_weight > 0:
-                                vl_edge.append(self._compute_edge_loss(vx0_pred, vimg_norm).item())
-                            if self.lpips_weight > 0 and self.lpips_fn is not None:
-                                vl_lpips.append(self._compute_lpips(vx0_pred, vimg_norm).item())
                         val_loss = sum(vl) / len(vl)
-                        val_lpips = sum(vl_lpips) / len(vl_lpips) if vl_lpips else 0.0
-                        val_edge = sum(vl_edge) / len(vl_edge) if vl_edge else 0.0
-                        val_total = val_loss + self.edge_weight * val_edge + self.lpips_weight * val_lpips
-                        print(f"  val_total={val_total:.4f} | val_forward={val_loss:.4f} | val_lpips={val_lpips:.4f} | val_edge={val_edge:.4f}")
+                        print(f"  val loss={val_loss:.4f}")
                     self.model.train(True)
 
                 training_log.append([
-                    self.step, self.scheduler.get_last_lr()[0], avg_loss, val_loss, val_total, avg_lpips, val_lpips, val_edge,
+                    self.step, self.scheduler.get_last_lr()[0], avg_loss, val_loss,
                 ])
                 df = pd.DataFrame(training_log, columns=[
-                    "iteration", "lr", "train_loss", "val_forward", "val_total", "train_lpips", "val_lpips", "val_edge",
+                    "iteration", "lr", "train_loss", "val_loss",
                 ])
                 log_dir = os.path.join(os.path.dirname(self.results_folder), "log")
                 ff.make_folder([log_dir])
