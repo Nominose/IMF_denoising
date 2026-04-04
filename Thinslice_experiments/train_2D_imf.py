@@ -18,7 +18,7 @@ import IMF_denoising.Generator_thinslice as Generator
 from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
 
 # ========== Parameters ==========
-trial_name = 'imf_unsupervised_gaussian_brainCT'
+trial_name = 'imf_v2_unsupervised_gaussian_brainCT'
 problem_dimension = '2D'
 supervision = 'unsupervised'
 
