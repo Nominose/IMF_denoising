@@ -233,20 +233,23 @@ class ImprovedMeanFlow(nn.Module):
         z = (1.0 - t_expand) * img_norm + t_expand * e
         target_v = e - img_norm
 
-        # Step 1: Get v from network (u will be recomputed via JVP)
-        _, v_pred = self._fn_uv(z, r, t, condition)
-
-        # If no v-head, fall back to boundary condition
-        if v_pred is None:
-            v_pred = self._fn_u(z, t, t, condition).detach()
-            loss_v = torch.tensor(0.0, device=device)
+        # Step 1: Get v for tangent vector
+        # Official iMF: JVP uses v as tangent, with has_aux to get v from same forward pass
+        if self.has_v_head:
+            # Get v_pred for tangent (need it before JVP)
+            # This is one extra forward, but v_pred needs to be detached for tangent anyway
+            v_pred = self._fn_u(z, t, t, condition).detach()  # boundary condition: v = u(z,t,t)
         else:
-            # v auxiliary loss
-            loss_v = self._adaptive_weighted_loss(v_pred - target_v)
+            with torch.no_grad():
+                v_pred = self._fn_u(z, t, t, condition)
 
-        # Step 2: JVP — strictly on u-branch only
-        def fn_for_jvp_u_only(z_in, r_in, t_in):
-            return self._fn_u(z_in, r_in, t_in, condition)
+        # Step 2: JVP on u-branch, with v-head as auxiliary output
+        def fn_for_jvp(z_in, r_in, t_in):
+            if self.has_v_head:
+                u_out, v_out = self._fn_uv(z_in, r_in, t_in, condition)
+                return u_out, v_out  # u = primal, v = aux
+            else:
+                return self._fn_u(z_in, r_in, t_in, condition)
 
         z_jvp = z.detach().requires_grad_(True)
         r_jvp = r.detach().requires_grad_(True)
@@ -256,7 +259,14 @@ class ImprovedMeanFlow(nn.Module):
         tangents = (v_pred.detach(), torch.zeros_like(r), torch.ones_like(t))
 
         try:
-            u, dudt = torch.func.jvp(fn_for_jvp_u_only, primals, tangents)
+            if self.has_v_head:
+                u, dudt, v_from_jvp = torch.func.jvp(
+                    fn_for_jvp, primals, tangents, has_aux=True
+                )
+                loss_v = self._adaptive_weighted_loss(v_from_jvp - target_v)
+            else:
+                u, dudt = torch.func.jvp(fn_for_jvp, primals, tangents)
+                loss_v = torch.tensor(0.0, device=device)
         except Exception as ex:
             self._jvp_fallback_count += 1
             if self._jvp_fallback_count <= 5:
@@ -269,6 +279,11 @@ class ImprovedMeanFlow(nn.Module):
                 z + eps_fd * v_pred.detach(), r, t + eps_fd, condition
             )
             dudt = (u_plus - u) / eps_fd
+            if self.has_v_head:
+                _, v_from_jvp = self._fn_uv(z, r, t, condition)
+                loss_v = self._adaptive_weighted_loss(v_from_jvp - target_v)
+            else:
+                loss_v = torch.tensor(0.0, device=device)
 
         # Step 3: Compound function V
         interval = t_expand - r_expand
