@@ -8,12 +8,12 @@ import lpips
 from tqdm import tqdm
 from einops import rearrange, repeat, reduce
 
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import *
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import *
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
 
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
-import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.edge_loss as edge_loss_fn
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Data_processing as Data_processing
+import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.edge_loss as edge_loss_fn
 # helpers
 
 def exists(val):
