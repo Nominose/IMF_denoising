@@ -3,10 +3,10 @@ sys.path.append('/gpfs/work/aac/xingyiyao23/Code')
 import os
 import torch 
 import numpy as np
-import Diffusion_denoising_thin_slice.noise2noise.model as noise2noise
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator as Generator
+import IMF_denoising.noise2noise.model as noise2noise
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator as Generator
 
 #######################
 trial_name = 'noise2noise_mayo_poisson'
@@ -82,8 +82,8 @@ generator_train = Generator.Dataset_2D(
         patch_size = patch_size,
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_lowdoseCT.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
+        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/IMF_denoising/help_data/histogram_equalization/bins_lowdoseCT.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/IMF_denoising/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
         normalize_factor = normalize_factor,
@@ -113,8 +113,8 @@ generator_val = Generator.Dataset_2D(
         patch_size = [512,512], # use full image for validation if GPU memory allows
 
         histogram_equalization = histogram_equalization,
-        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_lowdoseCT.npy'),
-        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
+        bins = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/IMF_denoising/help_data/histogram_equalization/bins_lowdoseCT.npy'),
+        bins_mapped = None if histogram_equalization == False else np.load('/gpfs/work/aac/xingyiyao23/Code/IMF_denoising/help_data/histogram_equalization/bins_mapped_lowdoseCT.npy'),
         background_cutoff = background_cutoff,
         maximum_cutoff = maximum_cutoff,
         normalize_factor = normalize_factor,)

@@ -9,8 +9,8 @@ from skimage.measure import block_reduce
 
 import torch
 from torch.utils.data import Dataset
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
-import Diffusion_denoising_thin_slice.functions_collection as ff
+import IMF_denoising.Data_processing as Data_processing
+import IMF_denoising.functions_collection as ff
 
 # random function
 def random_rotate(i, z_rotate_degree = None, z_rotate_range = [-10,10], fill_val = None, order = 1):

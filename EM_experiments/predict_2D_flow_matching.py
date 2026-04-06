@@ -15,11 +15,11 @@ import nibabel as nb
 # ======================================================================
 # CHANGE 1: import flow matching instead of ddpm
 # ======================================================================
-import Diffusion_denoising_thin_slice.conditional_flow_matching as fm           # <-- CHANGED
+import IMF_denoising.conditional_flow_matching as fm           # <-- CHANGED
 
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator as Generator
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator as Generator
 
 
 def get_args_parser():

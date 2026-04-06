@@ -4,7 +4,7 @@ import os
 import torch
 import numpy as np 
 import nibabel as nb
-import Diffusion_denoising_thin_slice.functions_collection as ff
+import IMF_denoising.functions_collection as ff
 
 
 def prepare_sliced_data():

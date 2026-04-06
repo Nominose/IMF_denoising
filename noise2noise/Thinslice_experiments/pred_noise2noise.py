@@ -5,10 +5,10 @@ import os
 import torch
 import numpy as np
 import nibabel as nb
-import Diffusion_denoising_thin_slice.noise2noise.Thinslice_experiments.model_previous_version as noise2noise
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.noise2noise.Thinslice_experiments.Generator as Generator 
+import IMF_denoising.noise2noise.Thinslice_experiments.model_previous_version as noise2noise
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.noise2noise.Thinslice_experiments.Generator as Generator 
 
 trial_name = 'noise2noise_brainCT' 
 epoch = 78

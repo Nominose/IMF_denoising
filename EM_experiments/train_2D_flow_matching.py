@@ -15,13 +15,13 @@ import nibabel as nb
 # CHANGE 1:  import flow matching instead of DDPM
 # ======================================================================
 # BEFORE (DDPM):
-#   import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
+#   import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
 # AFTER (Flow Matching):
-import Diffusion_denoising_thin_slice.conditional_flow_matching as fm          # <-- CHANGED
+import IMF_denoising.conditional_flow_matching as fm          # <-- CHANGED
 
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator as Generator
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator as Generator
 
 # ---------- hyper-parameters (same as before) ----------
 trial_name = 'flow_matching_gaussian_mayo'
@@ -66,7 +66,7 @@ print('train:', gt_file_list_train.shape[0], '; val:', gt_file_list_val.shape[0]
 # ======================================================================
 # The Unet class is identical; we just import it from the FM module
 # which re-exports it from conditional_diffusion.
-from Diffusion_denoising_thin_slice.conditional_flow_matching import Unet     # <-- CHANGED (import path only)
+from IMF_denoising.conditional_flow_matching import Unet     # <-- CHANGED (import path only)
 
 model = Unet(
     problem_dimension=problem_dimension,

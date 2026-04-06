@@ -32,14 +32,14 @@ from ema_pytorch import EMA
 
 from accelerate import Accelerator
 
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.attend import Attend
-import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.kernel as kernel
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.attend import Attend
+import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.kernel as kernel
 
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
 
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
-import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.edge_loss as edge_loss_fn
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Data_processing as Data_processing
+import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.edge_loss as edge_loss_fn
 
 # constants
 
@@ -1366,8 +1366,8 @@ class Sampler(object):
         
         self.histogram_equalization = self.generator.histogram_equalization
         print('histogram equalization: ', self.histogram_equalization)
-        self.bins = np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins.npy')
-        self.bins_mapped = np.load('/gpfs/work/aac/xingyiyao23/Code/Diffusion_denoising_thin_slice/help_data/histogram_equalization/bins_mapped.npy')        
+        self.bins = np.load('/gpfs/work/aac/xingyiyao23/Code/IMF_denoising/help_data/histogram_equalization/bins.npy')
+        self.bins_mapped = np.load('/gpfs/work/aac/xingyiyao23/Code/IMF_denoising/help_data/histogram_equalization/bins_mapped.npy')        
         self.background_cutoff = self.generator.background_cutoff
         self.maximum_cutoff = self.generator.maximum_cutoff
         self.normalize_factor = self.generator.normalize_factor

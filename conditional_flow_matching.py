@@ -27,7 +27,7 @@ from functools import partial
 import lpips
 import nibabel as nb
 
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import (
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import (
     Unet,
     exists,
     default,
@@ -35,11 +35,11 @@ from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffus
     divisible_by,
     cycle,
 )
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
-import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.edge_loss as edge_loss_fn
-import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.kernel as kernel
+from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Data_processing as Data_processing
+import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.edge_loss as edge_loss_fn
+import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.kernel as kernel
 
 
 class ConditionalFlowMatching(nn.Module):

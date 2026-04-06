@@ -5,11 +5,11 @@ import os
 import torch
 import numpy as np 
 import nibabel as nb
-import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator_MR as Generator_MR
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
+import IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion as ddpm
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator_MR as Generator_MR
+import IMF_denoising.Data_processing as Data_processing
 
 
 def get_args_parser():

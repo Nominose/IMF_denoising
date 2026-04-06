@@ -5,11 +5,11 @@ import torch
 import argparse
 import numpy as np
 import nibabel as nb
-import Diffusion_denoising_thin_slice.noise2noise.model as noise2noise
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
-import Diffusion_denoising_thin_slice.Generator_EM as Generator_EM
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
+import IMF_denoising.noise2noise.model as noise2noise
+import IMF_denoising.functions_collection as ff
+import IMF_denoising.Build_lists.Build_list as Build_list
+import IMF_denoising.Generator_EM as Generator_EM
+import IMF_denoising.Data_processing as Data_processing
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Diffusion Inference Script')
