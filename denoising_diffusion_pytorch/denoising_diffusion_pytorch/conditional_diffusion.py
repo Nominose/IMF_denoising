@@ -682,6 +682,7 @@ class GaussianDiffusion(nn.Module):
         schedule_fn_kwargs = dict(),
         ddim_sampling_eta = 0.,
         auto_normalize = False,
+        train_only_max_t = False,
         offset_noise_strength = 0.,  # https://www.crosslabs.org/blog/diffusion-with-offset-noise
         min_snr_loss_weight = False, # https://arxiv.org/abs/2303.09556
         min_snr_gamma = 5
@@ -733,6 +734,7 @@ class GaussianDiffusion(nn.Module):
         print('is ddim sampling', self.is_ddim_sampling)
         self.ddim_sampling_eta = ddim_sampling_eta
         self.force_ddim = force_ddim
+        self.train_only_max_t = train_only_max_t
 
         # helper function to register buffer from float64 to float32
 
@@ -1068,7 +1070,10 @@ class GaussianDiffusion(nn.Module):
         else:
             b, c, h, w, d, device, img_size, = *img.shape, img.device, self.image_size
 
-        t = torch.randint(0, self.num_timesteps, (b,), device=device).long() 
+        if self.train_only_max_t:
+            t = torch.full((b,), self.num_timesteps - 1, device=device).long()
+        else:
+            t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
 
         loss, model_out, target = self.p_losses(img, t, condition, *args, **kwargs)
         return loss, model_out, target
