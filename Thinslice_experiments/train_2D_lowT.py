@@ -78,7 +78,7 @@ diffusion_model = ddpm.GaussianDiffusion(
     objective=objective,
     clip_or_not=False,
     auto_normalize=False,
-    train_t_range=(0, 499),  # KEY: only train at low noise (t=0..499)
+    train_t_range=(0, 199),  # KEY: only train at low noise (t=0..199, bottom 20%)
 )
 
 # ========== Data generators ==========
@@ -128,7 +128,7 @@ trainer = ddpm.Trainer(
     generator_val=generator_val,
     train_batch_size=train_batch_size,
     accum_iter=1,
-    train_num_steps=150,
+    train_num_steps=60,
     results_folder=os.path.join('/gpfs/work/aac/xingyiyao23/projects/denoising/models', trial_name, 'models'),
     train_lr=1e-4,
     train_lr_decay_every=200,
