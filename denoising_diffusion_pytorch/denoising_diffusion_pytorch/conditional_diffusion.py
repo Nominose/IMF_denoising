@@ -683,6 +683,7 @@ class GaussianDiffusion(nn.Module):
         ddim_sampling_eta = 0.,
         auto_normalize = False,
         train_only_max_t = False,
+        train_t_range = None,  # (t_min, t_max) in [0, num_timesteps), e.g. (500, 999) for high-noise only
         offset_noise_strength = 0.,  # https://www.crosslabs.org/blog/diffusion-with-offset-noise
         min_snr_loss_weight = False, # https://arxiv.org/abs/2303.09556
         min_snr_gamma = 5
@@ -735,6 +736,7 @@ class GaussianDiffusion(nn.Module):
         self.ddim_sampling_eta = ddim_sampling_eta
         self.force_ddim = force_ddim
         self.train_only_max_t = train_only_max_t
+        self.train_t_range = train_t_range  # (t_min, t_max) inclusive
 
         # helper function to register buffer from float64 to float32
 
@@ -1072,6 +1074,9 @@ class GaussianDiffusion(nn.Module):
 
         if self.train_only_max_t:
             t = torch.full((b,), self.num_timesteps - 1, device=device).long()
+        elif self.train_t_range is not None:
+            t_min, t_max = self.train_t_range
+            t = torch.randint(t_min, t_max + 1, (b,), device=device).long()
         else:
             t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
 
