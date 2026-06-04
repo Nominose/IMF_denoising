@@ -635,31 +635,58 @@ class Sampler(object):
             sampling_model = self.ema.ema_model
 
         sampling_model.eval()
-        print("model device:", next(sampling_model.parameters()).device)
+        # (silenced) this per-call device print was noisy: it fires once per stochastic sample
+        # (K times per case). Uncomment if you need to confirm the model is on GPU.
+        # print("model device:", next(sampling_model.parameters()).device)
 
         pred = np.zeros((self.image_size[0], self.image_size[1], condition_img.shape[-1]), dtype=np.float32)
 
+        # Process multiple slices per forward (batch over slices) to actually use the GPU.
+        # slice_batch defaults to 1 (== old per-slice behavior); set sampler.slice_batch to raise it.
+        # Each slice still gets independent init noise, so batching is numerically a no-op vs batch=1.
+        slice_batch = max(1, int(getattr(self, "slice_batch", 1) or 1))
+        n_slices = condition_img.shape[-1]
+
         with torch.inference_mode():
-            for z in tqdm(range(condition_img.shape[-1]), desc="sampling", leave=False):
+            pbar = tqdm(total=n_slices, desc="sampling", leave=False)
+            z = 0
+            while z < n_slices:
+                b = min(slice_batch, n_slices - z)
 
                 if self.conditional_diffusion:
-                    datas = self.generator[z]
-                    cond = datas[1]
-                    if isinstance(cond, np.ndarray):
-                        cond = torch.from_numpy(cond).float()
-                    if cond.dim() == 2:
-                        cond = cond.unsqueeze(0).unsqueeze(0)
-                    elif cond.dim() == 3:
-                        cond = cond.unsqueeze(0)
-                    data_cond = cond.to(device)
+                    conds = []
+                    for j in range(b):
+                        cond = self.generator[z + j][1]
+                        if isinstance(cond, np.ndarray):
+                            cond = torch.from_numpy(cond).float()
+                        if cond.dim() == 2:
+                            cond = cond.unsqueeze(0).unsqueeze(0)
+                        elif cond.dim() == 3:
+                            cond = cond.unsqueeze(0)
+                        conds.append(cond)
+                    data_cond = torch.cat(conds, dim=0).to(device)   # [b, C, H, W]
                 else:
                     data_cond = None
 
-                if num_steps == 1:
-                    out = sampling_model.sample(condition=data_cond, batch_size=self.batch_size)
-                else:
-                    out = sampling_model.sample_multistep(condition=data_cond, batch_size=self.batch_size, num_steps=num_steps, solver=solver, schedule=schedule)
-                pred[:, :, z] = out[0, 0].detach().cpu().numpy()
+                try:
+                    if num_steps == 1:
+                        out = sampling_model.sample(condition=data_cond, batch_size=b)
+                    else:
+                        out = sampling_model.sample_multistep(condition=data_cond, batch_size=b, num_steps=num_steps, solver=solver, schedule=schedule)
+                except RuntimeError as e:
+                    if "out of memory" in str(e).lower() and slice_batch > 1:
+                        torch.cuda.empty_cache()
+                        slice_batch = max(1, slice_batch // 2)
+                        print(f"[sample_2D] CUDA OOM -> reducing slice_batch to {slice_batch}", flush=True)
+                        continue
+                    raise
+
+                out = out.detach().cpu().numpy()
+                for j in range(b):
+                    pred[:, :, z + j] = out[j, 0]
+                z += b
+                pbar.update(b)
+            pbar.close()
 
         if need_change_dim:
             pred = Data_processing.crop_or_pad(
