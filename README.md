@@ -69,6 +69,11 @@ IMF_denoising/
 |   |-- main_quantitative_imf.ipynb  # Evaluation metrics
 |   |-- main_quantitative_new.ipynb  # Evaluation (all methods comparison)
 |
+|-- gan/                           # [experimental] adversarial fine-tuning (training-only)
+|   |-- imf_gan.py                # one-step F(v) adversarial trainer + high-pass PatchGAN D
+|   |-- train_2D_imf_gan.py       # brain CT GAN fine-tuning entrypoint
+|   |-- view_fv_evolution.py      # montage of the per-epoch F(v) dumps -> evolution.png
+|
 |-- EM_experiments/                # Electron microscopy experiments
 |-- MR_experiments/                # MR denoising experiments
 |-- PCCT_experiments/              # Photon-counting CT experiments
@@ -156,6 +161,48 @@ Run `Thinslice_experiments/main_quantitative_imf.ipynb` to compute MAE, SSIM, an
 | Brain CT | Thin-slice brain CT | Adjacent slices (s-1, s+1) | 2 |
 | PCCT | Photon-counting brain CT | Adjacent slices | 2 |
 | EM | Electron microscopy | Independent simulations | 1 |
+
+## Experimental: Adversarial Fine-tuning (`gan/`)
+
+> **Status: experimental, training-only.** Inference is unchanged — the discriminator is discarded
+> and you keep the same few-step, K-flexible MeanFlow sampling. Whether this improves small-K LPIPS
+> is still under investigation; see the honest caveat below.
+
+At small K the few-step iMF samples are *under-dispersed* (closer to the smooth posterior mean than
+to a real noisy observation), which caps perceptual quality (LPIPS). This module adds a small
+adversarial term that pushes the model's **one-step** output toward the real **noisy `x2`**
+distribution — fully self-supervised (the discriminator's "real" is the noisy N2N target, never
+clean data):
+
+```
+L_total(G) = L_flow + beta * L_adv ,   with L_adv applied to  x0_pred = z - t*V
+```
+
+Design notes:
+- **One-step algebraic fake (no extra model call).** The adversarial "fake" is `x0_pred = z - t*V`,
+  the model's one-step clean estimate that `forward()` already returns — pure algebra on the
+  velocity `V` (analogous to the `eps/x0/xt` conversions in diffusion). This replaced an earlier
+  3-step differentiable rollout: it costs **0 extra forwards** (vs 3) and the gradient path is
+  shorter and cleaner. It also directly targets the most under-dispersed output (NFE=1 = posterior
+  mean).
+- **High-pass PatchGAN discriminator.** D sees `img - blur(img)` so the high-frequency noise (the
+  real-vs-fake signal) is not low-passed away by its stride-2 downsampling. Hinge loss + lazy R1;
+  unconditional by default.
+- **F(v) evolution dump.** Each epoch dumps the fixed-probe one-step F(v) (`fv_evolution/`) so you
+  can watch whether it drifts from the smooth mean toward the noisy x2.
+
+```bash
+python gan/train_2D_imf_gan.py        # loads model-200, fine-tunes with L_flow + beta * L_adv
+python gan/view_fv_evolution.py       # montage of the per-epoch F(v) dumps -> evolution.png
+```
+
+**Caveat (honest).** The discriminator's task here is to detect a low-magnitude, high-frequency
+noise difference — the regime where discriminators are known to be least sensitive
+([*On the Frequency Bias of Generative Models*, NeurIPS 2021](https://arxiv.org/abs/2111.02447):
+D struggles with frequencies of *low magnitude*, not high frequencies as such). The high-pass
+front-end targets this, but isolating the ~8% noise from shared anatomical edges is hard, so this
+path may not pan out. The repository's validated contributions remain the **NFE=1 collapse
+analysis** and the **GT-free (N,K) selection** metric (x2-reference).
 
 ## Citation
 
