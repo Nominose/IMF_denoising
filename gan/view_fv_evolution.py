@@ -55,7 +55,8 @@ def main():
     if os.path.isfile(real_p):
         panels.append(('real x2 (target)', np.load(real_p)))
     for p in fvs:
-        panels.append((f'epoch {_digits(p)}', np.load(p)))
+        e = _digits(p)
+        panels.append(('baseline (no GAN)' if e == 0 else f'epoch {e}', np.load(p)))
 
     ref = panels[0][1]
     vmin = args.vmin if args.vmin is not None else float(np.percentile(ref, 1))
