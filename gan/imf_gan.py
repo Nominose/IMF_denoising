@@ -148,6 +148,7 @@ class GANTrainer:
     def load_generator(self, path, key='model'):
         data = torch.load(path, map_location=self.device)
         self.G.load_state_dict(data[key])
+        self.ema.ema_model.load_state_dict(self.G.state_dict())   # sync EMA to loaded weights (else it stays at random init)
         print(f'[GAN] loaded pretrained generator ({key}) from {path}', flush=True)
 
     def save(self, tag):
@@ -157,18 +158,19 @@ class GANTrainer:
                     'opt_g': self.opt_g.state_dict(), 'opt_d': self.opt_d.state_dict()},
                    os.path.join(self.results_folder, f'model-{tag}.pt'))
 
-    def _rollout(self, z, cond, nfe):
+    def _rollout(self, z, cond, nfe, model=None):
         """Differentiable nfe-step Euler generation from pure noise z -> x0 (the NFE=nfe output).
         nfe=1 reduces to the single-step F(v) = z - u(z, r=0, t=1, c); higher nfe = the actual
-        multi-step inference object. NOT inference_mode, so the adversarial grad flows through every
-        step's u into G (nfe steps = nfe forwards)."""
+        multi-step inference object. model=None uses the live G (training, grad flows through every
+        step into G); pass self.ema.ema_model for the deployed EMA (visualization)."""
+        g = model if model is not None else self.G
         b = z.shape[0]
         ts = torch.linspace(1.0, 0.0, nfe + 1, device=self.device)
         for i in range(nfe):
             dt = (ts[i] - ts[i + 1]).item()
             t_b = torch.full((b,), ts[i].item(), device=self.device)
             r_b = torch.full((b,), ts[i + 1].item(), device=self.device)
-            z = z - dt * self.G._fn_u(z, r_b, t_b, cond)
+            z = z - dt * g._fn_u(z, r_b, t_b, cond)
         return z
 
     @torch.no_grad()
@@ -222,12 +224,14 @@ class GANTrainer:
 
     @torch.no_grad()
     def _dump_fv(self, epoch):
-        """Dump the adv_nfe-step generation for the FIXED probe -> fv_epoch{epoch}.npy (same fixed
-        noise every epoch, so epochs are directly comparable). adv_nfe=1 is the one-step NFE=1 output."""
-        x0 = self._rollout(self._fv_z, self._fv_cond, self.adv_nfe)
+        """Dump the EMA model's adv_nfe-step generation -> fv_epoch{epoch}.npy (same fixed noise every
+        epoch). EMA = what inference deploys, and it is far steadier than the live G (which oscillates
+        as part of the GAN game), so the evolution reflects the deployed model, not the raw-G wiggle."""
+        ema = self.ema.ema_model
+        x0 = self._rollout(self._fv_z, self._fv_cond, self.adv_nfe, model=ema)
         np.save(os.path.join(self._fv_dir, f'fv_epoch{epoch}.npy'), x0[0, 0].detach().cpu().numpy())
-        if self.fs_probe is not None:   # full-slice F(v) backup (the complete slice)
-            x0_fs = self._rollout(self._fs_z, self._fs_cond, self.adv_nfe)
+        if self.fs_probe is not None:   # full-slice F(v) backup (the complete slice), also from EMA
+            x0_fs = self._rollout(self._fs_z, self._fs_cond, self.adv_nfe, model=ema)
             np.save(os.path.join(self._fv_dir, f'fv_fullslice_epoch{epoch}.npy'), x0_fs[0, 0].detach().cpu().numpy())
 
     def train(self):
