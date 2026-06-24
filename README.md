@@ -73,6 +73,8 @@ IMF_denoising/
 |   |-- imf_gan.py                # one-step F(v) adversarial trainer + high-pass PatchGAN D
 |   |-- train_2D_imf_gan.py       # brain CT GAN fine-tuning entrypoint
 |   |-- view_fv_evolution.py      # montage of the per-epoch F(v) dumps -> evolution.png
+|   |-- view_probe.py             # real x2 vs NFE=1 fake + high-pass noise-texture compare
+|   |-- view_nfe1_fullslice.py    # full-slice noisy x2 vs NFE=1 vs clean GT compare
 |
 |-- EM_experiments/                # Electron microscopy experiments
 |-- MR_experiments/                # MR denoising experiments
@@ -175,16 +177,17 @@ distribution — fully self-supervised (the discriminator's "real" is the noisy 
 clean data):
 
 ```
-L_total(G) = L_flow + beta * L_adv ,   with L_adv applied to  x0_pred = z - t*V
+L_total(G) = L_flow + beta * L_adv ,   with L_adv applied to  x0_gen = z - u(z, r=0, t=1, c)
 ```
 
 Design notes:
-- **One-step algebraic fake (no extra model call).** The adversarial "fake" is `x0_pred = z - t*V`,
-  the model's one-step clean estimate that `forward()` already returns — pure algebra on the
-  velocity `V` (analogous to the `eps/x0/xt` conversions in diffusion). This replaced an earlier
-  3-step differentiable rollout: it costs **0 extra forwards** (vs 3) and the gradient path is
-  shorter and cleaner. It also directly targets the most under-dispersed output (NFE=1 = posterior
-  mean).
+- **One-step generation fake.** The adversarial "fake" is the model's true NFE=1 generation from
+  pure noise: `z ~ N(0,I)`, one differentiable Euler step `x0_gen = z - u(z, r=0, t=1, c)`. This is
+  exactly the cheapest-inference output and the most under-dispersed one (NFE=1 = posterior mean), so
+  D pushes precisely that toward x2. (Earlier variants applied D to a 3-step rollout, then to the
+  training-interpolant reconstruction `x0_pred = z - t*V`; the latter is free of an extra forward but
+  contaminated at large t — the one-step error is `t * velocity_error`, high-frequency and
+  t-amplified, so `x0_pred` is rough there. Generating from pure noise avoids both issues.)
 - **High-pass PatchGAN discriminator.** D sees `img - blur(img)` so the high-frequency noise (the
   real-vs-fake signal) is not low-passed away by its stride-2 downsampling. Hinge loss + lazy R1;
   unconditional by default.
@@ -192,8 +195,10 @@ Design notes:
   can watch whether it drifts from the smooth mean toward the noisy x2.
 
 ```bash
-python gan/train_2D_imf_gan.py        # loads model-200, fine-tunes with L_flow + beta * L_adv
+python gan/train_2D_imf_gan.py        # loads model-200, fine-tunes with L_flow + beta * L_adv (saves every epoch)
 python gan/view_fv_evolution.py       # montage of the per-epoch F(v) dumps -> evolution.png
+python gan/view_probe.py              # real x2 vs NFE=1 fake + high-pass (noise texture) side-by-side
+python gan/view_nfe1_fullslice.py     # full 512x512 slice: noisy x2 vs NFE=1 output vs clean GT
 ```
 
 **Caveat (honest).** The discriminator's task here is to detect a low-magnitude, high-frequency
