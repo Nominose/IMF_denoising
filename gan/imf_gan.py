@@ -5,12 +5,14 @@ imf_gan.py — add a lightweight adversarial loss to the iMF generator (TRAINING
     D = conditional PatchGAN, HINGE loss + R1 gradient penalty (R1 is critical for
         stability above ~128px; applied lazily every r1_every steps, StyleGAN2-style).
 
-Design (one-step ALGEBRAIC adversarial — advisor's F(v)):
-  * adversarial signal is on x0_pred = z - t*V: the model's ONE-STEP clean estimate, computed by
-    forward() via PURE ALGEBRA on the velocity V (NO extra model call — it reuses the same forward
-    that already computes the flow loss). D pushes this one-step output toward the real x2
-    distribution. Cheaper + cleaner gradient than an adv_nfe-step Euler rollout (backprops through
-    ONE forward, not adv_nfe chained ones). NOTE: adv_nfe is now UNUSED (kept for arg compat only).
+Design (one-step GENERATION adversarial — option B):
+  * adversarial signal is on the TRUE one-step generation from PURE noise (= the NFE=1 inference
+    output): z ~ N(0,I);  x0_gen = z - u(z, r=0, t=1, c).  D pushes this cheapest-inference output
+    toward the real x2 distribution. This targets the actual under-dispersed object -- NO small-t
+    data leakage and NO random-t reconstruction roughness (the t*delta junk that contaminated the
+    earlier x0_pred = z - t*V variant; x0_pred at large t is rough because the one-step error =
+    t * velocity_error, amplified). One differentiable Euler step (backprops through ONE forward
+    into G); one extra forward vs reusing x0_pred. NOTE: adv_nfe is UNUSED (kept for arg compat).
   * recommended workflow: FLOW-pretrain (your existing model-200) -> GAN fine-tune with small
     lr_g and small beta (two-stage, more stable than from-scratch GAN).
 
@@ -160,9 +162,13 @@ class GANTrainer:
         x0, cond = next(iter(self.dl))
         x0 = x0.to(self.device)
         cond = cond.to(self.device) if self.conditional else None
-        out = self.G(img=x0, condition=cond)
-        x0_pred, img_norm = out[3], out[-1]    # x0_pred = the one-step F(v) = exactly what D sees as "fake"
-        fake, noise = x0_pred, torch.randn_like(img_norm)
+        img_norm = self.G(img=x0, condition=cond)[-1]
+        b = img_norm.shape[0]
+        z = torch.randn_like(img_norm)
+        t1 = torch.full((b,), 1.0, device=self.device)
+        r0 = torch.full((b,), 0.0, device=self.device)
+        fake = z - self.G._fn_u(z, r0, t1, cond)   # one-step NFE=1 generation = exactly what D sees as "fake"
+        noise = torch.randn_like(img_norm)
         diff = (img_norm - fake).abs().mean().item()
         scale = img_norm.abs().mean().item()
         hf = lambda x: float((x[:, :, 1:, :] - x[:, :, :-1, :]).std())  # high-freq (noise) level proxy
@@ -221,20 +227,25 @@ class GANTrainer:
                 # ---------------- Generator: flow loss (+ adversarial) ----------------
                 _set_requires_grad(self.D, False)
                 loss_forward, V, target_v, x0_pred, img_norm = self.G(img=x0, condition=cond)
-                fake_detached = x0_pred.detach()   # D's "fake" = the one-step F(v) = z - t*V
                 if use_adv:
-                    # ONE-STEP ALGEBRAIC adversarial (advisor's F): x0_pred = z - t*V is the model's
-                    # one-step clean estimate, ALREADY returned by forward() — pure algebra on the
-                    # velocity V, NO extra model call. Push it toward the real x2 distribution. The
-                    # adversarial grad backprops through V into the SINGLE forward (cheaper + cleaner
-                    # than rolling out adv_nfe chained forwards; that was the old, unstable path).
-                    # NOTE: x0_pred uses z=(1-t)x2+t*e, so at small t it ~= the real x2 (data leaks in
-                    # -> trivially "real"); the adversarial pressure therefore concentrates at large t
-                    # where x0_pred is the smooth posterior-mean (the under-dispersed output we want to
-                    # push). To make it strict, mask to large-t samples (not done here, keep it simple).
-                    g_adv = g_hinge(self.D(x0_pred, cond))
+                    # OPTION B: adversarial on the TRUE one-step generation from PURE noise (= the
+                    # NFE=1 inference output). z ~ N(0,I); one differentiable Euler step t=1 -> r=0:
+                    #     x0_gen = z - u(z, r=0, t=1, c)
+                    # Targets the actual cheapest-inference object -- NO small-t data leakage and NO
+                    # random-t reconstruction roughness (one-step error = t * velocity_error, which is
+                    # high-freq and t-amplified -> the t*delta junk that made x0_pred rough at large t).
+                    # NOT inference_mode, so the adversarial grad flows through u into G. One extra
+                    # forward vs reusing x0_pred, but on the right object. (= old rollout with adv_nfe=1.)
+                    b = x0.shape[0]
+                    z = torch.randn_like(img_norm)
+                    t1 = torch.full((b,), 1.0, device=self.device)
+                    r0 = torch.full((b,), 0.0, device=self.device)
+                    x0_gen = z - self.G._fn_u(z, r0, t1, cond)
+                    fake_detached = x0_gen.detach()
+                    g_adv = g_hinge(self.D(x0_gen, cond))
                     g_loss = loss_forward + self.adv_weight * g_adv
                 else:
+                    fake_detached = x0_pred.detach()
                     g_adv = torch.zeros((), device=self.device)
                     g_loss = loss_forward
                 self.opt_g.zero_grad(set_to_none=True)

@@ -83,7 +83,9 @@ def get_args():
     p.add_argument('--r1_gamma', type=float, default=0.01, help='0.01 (was 0.1): R1 was over-regularizing a struggling D; with the 0.5 fix this is ~20x lighter than the original')
     p.add_argument('--adv_nfe', type=int, default=3, help='adversarial fake = a differentiable NFE-step generation (match your inference: 3 or 5)')
     p.add_argument('--adv_start_step', type=int, default=0, help='warmup: flow-only steps before turning GAN on')
-    p.add_argument('--save_every', type=int, default=5)
+    p.add_argument('--save_every', type=int, default=1,
+                   help='1 = every epoch. GAN quality is non-monotone (can peak then degrade), so '
+                        'checkpoint finely to catch the best epoch (each ckpt ~0.58 GB; prune bad ones).')
     return p.parse_args()
 
 

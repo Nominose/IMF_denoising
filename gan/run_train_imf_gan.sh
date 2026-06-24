@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=ts_imf_gan
-#SBATCH --partition=aiaca800
+#SBATCH --partition=gpua800,aiaca800
 #SBATCH --qos=1a800
 #SBATCH --gpus=1
 #SBATCH --time=72:00:00
