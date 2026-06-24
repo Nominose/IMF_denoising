@@ -70,8 +70,9 @@ IMF_denoising/
 |   |-- main_quantitative_new.ipynb  # Evaluation (all methods comparison)
 |
 |-- gan/                           # [experimental] adversarial fine-tuning (training-only)
-|   |-- imf_gan.py                # one-step F(v) adversarial trainer + high-pass PatchGAN D
-|   |-- train_2D_imf_gan.py       # brain CT GAN fine-tuning entrypoint
+|   |-- imf_gan.py                # adv_nfe-step adversarial trainer + high-pass PatchGAN D
+|   |-- train_2D_imf_gan.py       # GAN fine-tuning entrypoint (adv_nfe=1, single-step)
+|   |-- train_2D_imf_gan_nfe3.py  # GAN fine-tuning, NFE=3-direct adversarial (adv_nfe=3)
 |   |-- view_fv_evolution.py      # montage of the per-epoch F(v) dumps -> evolution.png
 |   |-- view_probe.py             # real x2 vs NFE=1 fake + high-pass noise-texture compare
 |   |-- view_nfe1_fullslice.py    # full-slice noisy x2 vs NFE=1 vs clean GT compare
