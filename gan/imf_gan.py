@@ -113,7 +113,7 @@ class GANTrainer:
     def __init__(self, diffusion_model, discriminator, generator_train, *,
                  train_batch_size=2, train_num_steps=100, results_folder=None,
                  lr_g=1e-5, lr_d=2e-4, adv_weight=0.1, r1_gamma=1.0, r1_every=16,
-                 adv_nfe=3,
+                 adv_nfe=3, fs_probe=None,
                  adv_start_step=0, ema_decay=0.999, save_every=5, max_grad_norm=1.0,
                  device='cuda'):
         self.device = torch.device('cuda' if (device == 'cuda' and torch.cuda.is_available()) else 'cpu')
@@ -132,6 +132,9 @@ class GANTrainer:
         self.r1_gamma = r1_gamma
         self.r1_every = max(1, int(r1_every))
         self.adv_nfe = max(1, int(adv_nfe))
+        # optional full-slice F(v) probe: (real_x2, cond) tensors or None -> dumps a COMPLETE slice
+        # (e.g. 512x512 slice 25) each epoch, not just the 128 training patch (evolution backup)
+        self.fs_probe = None if fs_probe is None else tuple(t.to(self.device) for t in fs_probe)
         self.adv_start = adv_start_step
         self.train_num_steps = train_num_steps
         self.results_folder = results_folder
@@ -210,6 +213,12 @@ class GANTrainer:
         os.makedirs(self._fv_dir, exist_ok=True)
         np.save(os.path.join(self._fv_dir, 'real_x2.npy'), self._fv_real[0, 0].detach().cpu().numpy())
         print(f'[fv] F(v) evolution -> {self._fv_dir}  (real_x2.npy = target; fv_epoch*.npy = one-step output each epoch)', flush=True)
+        # optional FULL-SLICE probe (e.g. 512x512 slice 25): fixed cond + fixed noise -> watch the whole slice evolve
+        if self.fs_probe is not None:
+            self._fs_real, self._fs_cond = self.fs_probe
+            self._fs_z = torch.randn_like(self._fs_real)
+            np.save(os.path.join(self._fv_dir, 'real_x2_fullslice.npy'), self._fs_real[0, 0].detach().cpu().numpy())
+            print(f'[fv] full-slice probe ON {tuple(self._fs_real.shape)} -> fv_fullslice_epoch*.npy each epoch', flush=True)
 
     @torch.no_grad()
     def _dump_fv(self, epoch):
@@ -217,6 +226,9 @@ class GANTrainer:
         noise every epoch, so epochs are directly comparable). adv_nfe=1 is the one-step NFE=1 output."""
         x0 = self._rollout(self._fv_z, self._fv_cond, self.adv_nfe)
         np.save(os.path.join(self._fv_dir, f'fv_epoch{epoch}.npy'), x0[0, 0].detach().cpu().numpy())
+        if self.fs_probe is not None:   # full-slice F(v) backup (the complete slice)
+            x0_fs = self._rollout(self._fs_z, self._fs_cond, self.adv_nfe)
+            np.save(os.path.join(self._fv_dir, f'fv_fullslice_epoch{epoch}.npy'), x0_fs[0, 0].detach().cpu().numpy())
 
     def train(self):
         self._sanity_probe()

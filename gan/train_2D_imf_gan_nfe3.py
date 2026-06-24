@@ -126,12 +126,30 @@ def main():
     save_models = os.path.join(_BASE, 'projects/denoising/models', args.trial_name, 'models')
     ff.make_folder([os.path.dirname(os.path.dirname(save_models)), os.path.dirname(save_models), save_models])
 
+    # full-slice F(v) probe: one fixed slice (FS_SLICE) of case 0 -> the trainer dumps a COMPLETE
+    # 512x512 slice each epoch (fv_fullslice_epoch*.npy in fv_evolution/), not just the 128 patch.
+    FS_SLICE = 25
+    fs_probe = None
+    try:
+        gen_fs = Generator.Dataset_2D(
+            supervision='unsupervised', img_list=x0_tr[:1], condition_list=cond_tr[:1], image_size=IMG,
+            num_slices_per_image=1, random_pick_slice=False, slice_range=[FS_SLICE, FS_SLICE + 1],
+            num_patches_per_slice=None, patch_size=None,
+            histogram_equalization=HE, bins=bins, bins_mapped=binsm,
+            background_cutoff=BG, maximum_cutoff=MX, normalize_factor=NF,
+            shuffle=False, augment=False)
+        fs_real, fs_cond = gen_fs[0]
+        fs_probe = (fs_real.unsqueeze(0), fs_cond.unsqueeze(0))   # (1,1,512,512), (1,2,512,512)
+        print(f'[fs] full-slice probe = slice {FS_SLICE}')
+    except Exception as e:
+        print(f'[fs] full-slice probe disabled ({str(e)[:90]})')
+
     trainer = GANTrainer(
         diffusion_model=G, discriminator=D, generator_train=gen_tr,
         train_batch_size=args.batch_size, train_num_steps=args.train_num_steps,
         results_folder=save_models, lr_g=args.lr_g, lr_d=args.lr_d,
         adv_weight=args.adv_weight, r1_gamma=args.r1_gamma, adv_start_step=args.adv_start_step,
-        adv_nfe=args.adv_nfe, save_every=args.save_every)
+        adv_nfe=args.adv_nfe, save_every=args.save_every, fs_probe=fs_probe)
 
     if args.pretrained and os.path.isfile(args.pretrained):
         trainer.load_generator(args.pretrained, key='model')
