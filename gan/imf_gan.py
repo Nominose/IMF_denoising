@@ -5,14 +5,15 @@ imf_gan.py — add a lightweight adversarial loss to the iMF generator (TRAINING
     D = conditional PatchGAN, HINGE loss + R1 gradient penalty (R1 is critical for
         stability above ~128px; applied lazily every r1_every steps, StyleGAN2-style).
 
-Design (one-step GENERATION adversarial — option B):
-  * adversarial signal is on the TRUE one-step generation from PURE noise (= the NFE=1 inference
-    output): z ~ N(0,I);  x0_gen = z - u(z, r=0, t=1, c).  D pushes this cheapest-inference output
-    toward the real x2 distribution. This targets the actual under-dispersed object -- NO small-t
-    data leakage and NO random-t reconstruction roughness (the t*delta junk that contaminated the
-    earlier x0_pred = z - t*V variant; x0_pred at large t is rough because the one-step error =
-    t * velocity_error, amplified). One differentiable Euler step (backprops through ONE forward
-    into G); one extra forward vs reusing x0_pred. NOTE: adv_nfe is UNUSED (kept for arg compat).
+Design (GENERATION adversarial — adv_nfe-step):
+  * adversarial signal is on the model's TRUE adv_nfe-step generation from PURE noise (= the NFE=adv_nfe
+    inference object), via the differentiable _rollout. adv_nfe=1 -> single-step F(v) = z - u(z,0,1,c)
+    (cheapest, most-collapsed output; train_2D_imf_gan.py); adv_nfe=3 -> the 3-step rollout that
+    directly optimises the NFE=3 output (train_2D_imf_gan_nfe3.py). D pushes that output toward the
+    real x2 distribution. This targets the actual under-dispersed object -- NO small-t data leakage
+    and NO random-t reconstruction roughness (the t*delta junk that contaminated the earlier
+    x0_pred = z - t*V variant). Differentiable rollout (NOT inference_mode) so the adversarial grad
+    flows through every step into G. Cost = adv_nfe forwards per step.
   * recommended workflow: FLOW-pretrain (your existing model-200) -> GAN fine-tune with small
     lr_g and small beta (two-stage, more stable than from-scratch GAN).
 
@@ -112,7 +113,7 @@ class GANTrainer:
     def __init__(self, diffusion_model, discriminator, generator_train, *,
                  train_batch_size=2, train_num_steps=100, results_folder=None,
                  lr_g=1e-5, lr_d=2e-4, adv_weight=0.1, r1_gamma=1.0, r1_every=16,
-                 adv_nfe=3,
+                 adv_nfe=3, fs_probe=None,
                  adv_start_step=0, ema_decay=0.999, save_every=5, max_grad_norm=1.0,
                  device='cuda'):
         self.device = torch.device('cuda' if (device == 'cuda' and torch.cuda.is_available()) else 'cpu')
@@ -131,6 +132,9 @@ class GANTrainer:
         self.r1_gamma = r1_gamma
         self.r1_every = max(1, int(r1_every))
         self.adv_nfe = max(1, int(adv_nfe))
+        # optional full-slice F(v) probe: (real_x2, cond) tensors or None -> dumps a COMPLETE slice
+        # (e.g. 512x512 slice 25) each epoch, not just the 128 training patch (evolution backup)
+        self.fs_probe = None if fs_probe is None else tuple(t.to(self.device) for t in fs_probe)
         self.adv_start = adv_start_step
         self.train_num_steps = train_num_steps
         self.results_folder = results_folder
@@ -153,6 +157,20 @@ class GANTrainer:
                     'opt_g': self.opt_g.state_dict(), 'opt_d': self.opt_d.state_dict()},
                    os.path.join(self.results_folder, f'model-{tag}.pt'))
 
+    def _rollout(self, z, cond, nfe):
+        """Differentiable nfe-step Euler generation from pure noise z -> x0 (the NFE=nfe output).
+        nfe=1 reduces to the single-step F(v) = z - u(z, r=0, t=1, c); higher nfe = the actual
+        multi-step inference object. NOT inference_mode, so the adversarial grad flows through every
+        step's u into G (nfe steps = nfe forwards)."""
+        b = z.shape[0]
+        ts = torch.linspace(1.0, 0.0, nfe + 1, device=self.device)
+        for i in range(nfe):
+            dt = (ts[i] - ts[i + 1]).item()
+            t_b = torch.full((b,), ts[i].item(), device=self.device)
+            r_b = torch.full((b,), ts[i + 1].item(), device=self.device)
+            z = z - dt * self.G._fn_u(z, r_b, t_b, cond)
+        return z
+
     @torch.no_grad()
     def _sanity_probe(self):
         """One-time check: is there ANY real-vs-fake signal for D to learn?
@@ -163,11 +181,7 @@ class GANTrainer:
         x0 = x0.to(self.device)
         cond = cond.to(self.device) if self.conditional else None
         img_norm = self.G(img=x0, condition=cond)[-1]
-        b = img_norm.shape[0]
-        z = torch.randn_like(img_norm)
-        t1 = torch.full((b,), 1.0, device=self.device)
-        r0 = torch.full((b,), 0.0, device=self.device)
-        fake = z - self.G._fn_u(z, r0, t1, cond)   # one-step NFE=1 generation = exactly what D sees as "fake"
+        fake = self._rollout(torch.randn_like(img_norm), cond, self.adv_nfe)   # the adv_nfe-step generation = what D sees as "fake"
         noise = torch.randn_like(img_norm)
         diff = (img_norm - fake).abs().mean().item()
         scale = img_norm.abs().mean().item()
@@ -199,17 +213,22 @@ class GANTrainer:
         os.makedirs(self._fv_dir, exist_ok=True)
         np.save(os.path.join(self._fv_dir, 'real_x2.npy'), self._fv_real[0, 0].detach().cpu().numpy())
         print(f'[fv] F(v) evolution -> {self._fv_dir}  (real_x2.npy = target; fv_epoch*.npy = one-step output each epoch)', flush=True)
+        # optional FULL-SLICE probe (e.g. 512x512 slice 25): fixed cond + fixed noise -> watch the whole slice evolve
+        if self.fs_probe is not None:
+            self._fs_real, self._fs_cond = self.fs_probe
+            self._fs_z = torch.randn_like(self._fs_real)
+            np.save(os.path.join(self._fv_dir, 'real_x2_fullslice.npy'), self._fs_real[0, 0].detach().cpu().numpy())
+            print(f'[fv] full-slice probe ON {tuple(self._fs_real.shape)} -> fv_fullslice_epoch*.npy each epoch', flush=True)
 
     @torch.no_grad()
     def _dump_fv(self, epoch):
-        """Dump the one-step F(v) = z - u(z, r=0, t=1, c) for the FIXED probe -> fv_epoch{epoch}.npy.
-        Same form as NFE=1 inference (t-r=1), but from the fixed noise so epochs are directly comparable."""
-        b = self._fv_z.shape[0]
-        t1 = torch.full((b,), 1.0, device=self.device)
-        r0 = torch.full((b,), 0.0, device=self.device)
-        u = self.G._fn_u(self._fv_z, r0, t1, self._fv_cond)
-        x0 = self._fv_z - u                                                     # one-step generation
+        """Dump the adv_nfe-step generation for the FIXED probe -> fv_epoch{epoch}.npy (same fixed
+        noise every epoch, so epochs are directly comparable). adv_nfe=1 is the one-step NFE=1 output."""
+        x0 = self._rollout(self._fv_z, self._fv_cond, self.adv_nfe)
         np.save(os.path.join(self._fv_dir, f'fv_epoch{epoch}.npy'), x0[0, 0].detach().cpu().numpy())
+        if self.fs_probe is not None:   # full-slice F(v) backup (the complete slice)
+            x0_fs = self._rollout(self._fs_z, self._fs_cond, self.adv_nfe)
+            np.save(os.path.join(self._fv_dir, f'fv_fullslice_epoch{epoch}.npy'), x0_fs[0, 0].detach().cpu().numpy())
 
     def train(self):
         self._sanity_probe()
@@ -228,19 +247,13 @@ class GANTrainer:
                 _set_requires_grad(self.D, False)
                 loss_forward, V, target_v, x0_pred, img_norm = self.G(img=x0, condition=cond)
                 if use_adv:
-                    # OPTION B: adversarial on the TRUE one-step generation from PURE noise (= the
-                    # NFE=1 inference output). z ~ N(0,I); one differentiable Euler step t=1 -> r=0:
-                    #     x0_gen = z - u(z, r=0, t=1, c)
-                    # Targets the actual cheapest-inference object -- NO small-t data leakage and NO
-                    # random-t reconstruction roughness (one-step error = t * velocity_error, which is
-                    # high-freq and t-amplified -> the t*delta junk that made x0_pred rough at large t).
-                    # NOT inference_mode, so the adversarial grad flows through u into G. One extra
-                    # forward vs reusing x0_pred, but on the right object. (= old rollout with adv_nfe=1.)
-                    b = x0.shape[0]
-                    z = torch.randn_like(img_norm)
-                    t1 = torch.full((b,), 1.0, device=self.device)
-                    r0 = torch.full((b,), 0.0, device=self.device)
-                    x0_gen = z - self.G._fn_u(z, r0, t1, cond)
+                    # Adversarial fake = the model's TRUE adv_nfe-step generation from PURE noise (the
+                    # actual NFE=adv_nfe inference object). adv_nfe=1 -> single-step F(v)=z-u(z,0,1,c)
+                    # (cheapest, most-collapsed output); adv_nfe=3 -> the 3-step rollout, directly
+                    # optimizing the NFE=3 output. No small-t data leakage, no random-t roughness.
+                    # Differentiable (NOT inference_mode) so the adversarial grad flows through every
+                    # step into G. Cost = adv_nfe forwards.
+                    x0_gen = self._rollout(torch.randn_like(img_norm), cond, self.adv_nfe)
                     fake_detached = x0_gen.detach()
                     g_adv = g_hinge(self.D(x0_gen, cond))
                     g_loss = loss_forward + self.adv_weight * g_adv

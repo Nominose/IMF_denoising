@@ -40,14 +40,18 @@ def main():
     ap.add_argument('--cols', type=int, default=6)
     ap.add_argument('--vmin', type=float, default=None, help='grayscale low (default: 1st pct of real)')
     ap.add_argument('--vmax', type=float, default=None, help='grayscale high (default: 99th pct of real)')
+    ap.add_argument('--fullslice', action='store_true',
+                    help='montage the FULL-SLICE dumps (fv_fullslice_epoch*.npy) instead of the 128 patch ones')
     args = ap.parse_args()
 
-    fvs = sorted(glob.glob(os.path.join(args.folder, 'fv_epoch*.npy')), key=_digits)
+    stub = 'fv_fullslice_epoch' if args.fullslice else 'fv_epoch'
+    realname = 'real_x2_fullslice.npy' if args.fullslice else 'real_x2.npy'
+    fvs = sorted(glob.glob(os.path.join(args.folder, stub + '*.npy')), key=_digits)
     if not fvs:
-        raise SystemExit(f'no fv_epoch*.npy under {args.folder}')
+        raise SystemExit(f'no {stub}*.npy under {args.folder}')
 
     panels = []
-    real_p = os.path.join(args.folder, 'real_x2.npy')
+    real_p = os.path.join(args.folder, realname)
     if os.path.isfile(real_p):
         panels.append(('real x2 (target)', np.load(real_p)))
     for p in fvs:
@@ -68,7 +72,7 @@ def main():
         ax.imshow(img, cmap='gray', vmin=vmin, vmax=vmax)
         ax.set_title(title, fontsize=8)
 
-    out = os.path.join(args.folder, 'evolution.png')
+    out = os.path.join(args.folder, 'evolution_fullslice.png' if args.fullslice else 'evolution.png')
     fig.tight_layout()
     fig.savefig(out, dpi=120, bbox_inches='tight')
     print(f'saved {out}  ({n} panels, window [{vmin:.3f}, {vmax:.3f}])')
