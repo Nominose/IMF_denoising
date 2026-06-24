@@ -10,7 +10,8 @@
 # NFE=1 GAN fine-tune of the flow-pretrained iMF v2 generator (model-200), adv_weight=0.8.
 # Identical to run_train_imf_gan.sh EXCEPT a STRONGER adversarial pull: beta 0.5 -> 0.8 (flow still
 # present but the D pushes the single-step F(v) harder toward the real noisy-x2 texture). adv_nfe=1
-# = the cheapest NFE=1 inference object. Separate --trial_name so it never clobbers the 0.5 run.
+# = the cheapest NFE=1 inference object, so batch=32 (~27GB) fits the 80GB A800 with room to spare.
+# Separate --trial_name so it never clobbers the 0.5 run.
 # Inference is unchanged afterward (discriminator discarded). xlsx / bins / save dir auto-resolve
 # to /gpfs/work/aac/xingyiyao23 via _detect_base()/_he_bins().
 
@@ -23,4 +24,5 @@ python gan/train_2D_imf_gan.py \
   --pretrained /gpfs/work/aac/xingyiyao23/projects/denoising/models/imf_v2_unsupervised_gaussian_brainCT/models/model-200.pt \
   --trial_name imf_gan_aw0.8_nfe1_brainCT \
   --adv_weight 0.8 \
-  --adv_nfe 1
+  --adv_nfe 1 \
+  --batch_size 32
