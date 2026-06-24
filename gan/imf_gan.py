@@ -233,6 +233,7 @@ class GANTrainer:
     def train(self):
         self._sanity_probe()
         self._setup_fv_probe()
+        self._dump_fv(0)   # epoch 0 = the loaded model BEFORE any GAN step = the baseline "original NFE" reference
         log = []
         for epoch in range(self.train_num_steps):
             self.G.train(); self.D.train()
