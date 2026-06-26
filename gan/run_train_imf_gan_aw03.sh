@@ -1,0 +1,28 @@
+#!/bin/bash
+#SBATCH --job-name=ts_imf_gan_aw03
+#SBATCH --partition=gpua800,aiaca800
+#SBATCH --qos=1a800
+#SBATCH --gpus=1
+#SBATCH --time=72:00:00
+#SBATCH --mem=64G
+#SBATCH --output=log_train_imf_gan_aw03_%j.txt
+
+# NFE=1 GAN fine-tune of the flow-pretrained iMF v2 generator (model-200), adv_weight=0.3.
+# The LOW end of the NFE=1 adv sweep (0.3 / 0.5 / 0.8): a MILD adversarial pull (beta 0.3) where the
+# flow loss strongly dominates and the D only lightly nudges the single-step F(v) toward the real
+# noisy-x2 texture. adv_nfe=1 = the cheapest NFE=1 inference object, so batch=32 (~27GB) fits the
+# 80GB A800 with room to spare. Separate --trial_name so it never clobbers the 0.5 / 0.8 runs.
+# Inference is unchanged afterward (discriminator discarded). xlsx / bins / save dir auto-resolve
+# to /gpfs/work/aac/xingyiyao23 via _detect_base()/_he_bins().
+
+source /gpfs/spack/opt/linux-rocky8-icelake/gcc-8.5.0/anaconda3-2022.10-4dp3trddxrrzcg6rozuot7ckgh3zjche/etc/profile.d/conda.sh
+conda activate n2ndm
+export PYTHONPATH=/gpfs/work/aac/xingyiyao23/Code:$PYTHONPATH
+cd /gpfs/work/aac/xingyiyao23/Code/IMF_denoising
+
+python gan/train_2D_imf_gan.py \
+  --pretrained /gpfs/work/aac/xingyiyao23/projects/denoising/models/imf_v2_unsupervised_gaussian_brainCT/models/model-200.pt \
+  --trial_name imf_gan_aw0.3_nfe1_brainCT \
+  --adv_weight 0.3 \
+  --adv_nfe 1 \
+  --batch_size 32
