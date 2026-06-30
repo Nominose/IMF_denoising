@@ -14,18 +14,19 @@ This is the Mayo counterpart of `Thinslice_experiments/train_2D_imf.py` (brain C
 Backbone is identical to the brain-CT v2 model: U-Net (+ auxiliary v-head) + ImprovedMeanFlow.
 
 Cleaned/parameterised replacement for the old `CT_experiments/train_2D_imf.py`, whose hard-coded
-paths (`/host/d/file/新建文件夹/mayo/...`) are stale. Paths are now auto-detected + argparse-able.
+paths were stale. Paths are now auto-detected + argparse-able.
 
-Data layout
------------
-  patient list : <base>/新mayo_data/mayo_low_dose_CT_gaussian_simulation_highnoise_v2.xlsx
-                 (columns: batch, Patient_ID, simulation_file_odd/even/all, ground_truth_file, ...)
-  recon files  : stored in the xlsx as `/host/e/D/Data/low_dose_CT/...` (the **E:** drive).
-                 -> the training environment MUST mount E: at /host/e. The default
-                    pytorch_container only mounts C:/D:, so remount E: before training.
+Data layout (all under D:, which the docker container already mounts at /host/d)
+--------------------------------------------------------------------------------
+  patient list : <base>/Data/新mayo_data/mayo_low_dose_CT_gaussian_simulation_highnoise_v2.xlsx
+                 (cols: batch, Patient_ID, simulation_file_odd/even/all, ground_truth_file, ...)
+                 batches: 'train' (6 patients) / 'val' (1) / 'test' (3).
+  recon files  : the xlsx stores them as `/host/e/D/Data/low_dose_CT/<rest>` (old E: layout), but
+                 the data now also lives on D: at `<base>/Data/新mayo_data/<rest>`. `_remap` resolves
+                 either, so NO E: mount is needed when running against the D: copy.
   models out   : <base>/projects/denoising/models/<trial_name>/models/
 
-Usage (inside the docker env, with E: mounted at /host/e and a GPU)
+Usage (docker env with a GPU)
     python CT_experiments/train_2D_imf_mayo.py
     python CT_experiments/train_2D_imf_mayo.py --train_num_steps 200 --train_batch_size 1
     python CT_experiments/train_2D_imf_mayo.py --patient_list_file <xlsx> --trial_name <name>
@@ -52,33 +53,32 @@ from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.condi
 
 
 def _detect_base():
-    """Where the Mayo xlsx + model outputs live. Docker mounts D: at /host/d (data under
-    D:\\research). Falls back across the usual mount points."""
+    """Data root holding `Data/新mayo_data` + `projects/denoising`. Docker mounts D: at /host/d
+    (data under D:\\research); falls back across the usual mount points / host drive letters."""
     for b in ('/host/d/research', '/host/d', 'D:/research', '/d/research'):
-        if os.path.isdir(os.path.join(b, '新mayo_data')) or os.path.isdir(os.path.join(b, 'projects/denoising')):
+        if os.path.isdir(os.path.join(b, 'Data', '新mayo_data')):
             return b
     return '/host/d/research'
 
 
 _BASE = _detect_base()
+_MAYO_DATA = os.path.join(_BASE, 'Data', '新mayo_data')   # where the recon volumes live now (on D:)
 
 
 def _remap(p):
-    """Resolve a stored recon path across mounts. The xlsx stores `/host/e/...` (E: drive); on a
-    Windows host that is `E:/` (Git-Bash `/e/`), in docker it is `/host/e` (needs E: mounted)."""
+    """Resolve a stored recon path. The xlsx records `/host/e/D/Data/low_dose_CT/<rest>` (old E:
+    layout); the data now also lives on D: at `<base>/Data/新mayo_data/<rest>`. Try as-is first
+    (works if E: is mounted at /host/e), then remap onto the D: copy."""
     if p is None:
         return p
     p = str(p)
     if os.path.exists(p):
         return p
-    for src, dsts in (('/host/e', ('/host/e', 'E:', '/e')),
-                      ('/host/d', ('/host/d/research', '/host/d', 'D:', '/d'))):
-        if p.startswith(src + '/'):
-            tail = p[len(src):]
-            for d in dsts:
-                cand = d + tail
-                if os.path.exists(cand):
-                    return cand
+    old = '/host/e/D/Data/low_dose_CT'
+    if p.startswith(old + '/'):
+        cand = _MAYO_DATA + p[len(old):]
+        if os.path.exists(cand):
+            return cand
     return p
 
 
@@ -86,7 +86,7 @@ def get_args():
     ap = argparse.ArgumentParser('Mayo low-dose CT iMF (no GAN) training')
     ap.add_argument('--trial_name', default='imf_v2_unsupervised_gaussian_mayo')
     ap.add_argument('--patient_list_file',
-                    default=os.path.join(_BASE, '新mayo_data/mayo_low_dose_CT_gaussian_simulation_highnoise_v2.xlsx'))
+                    default=os.path.join(_MAYO_DATA, 'mayo_low_dose_CT_gaussian_simulation_highnoise_v2.xlsx'))
     ap.add_argument('--study_folder', default=os.path.join(_BASE, 'projects/denoising/models'))
     ap.add_argument('--batch_train', nargs='+', default=['train'], help="xlsx 'batch' value(s) for training")
     ap.add_argument('--batch_val',   nargs='+', default=['val'],   help="xlsx 'batch' value(s) for validation")
@@ -115,6 +115,7 @@ def main():
     preload = not args.no_preload
 
     print('data base   :', _BASE)
+    print('mayo data   :', _MAYO_DATA)
     print('patient list:', args.patient_list_file)
     if not os.path.isfile(args.patient_list_file):
         raise FileNotFoundError(args.patient_list_file)
@@ -143,7 +144,7 @@ def main():
         clip_or_not=False, auto_normalize=False, adaptive_weight_power=1.0, v_loss_weight=0.5,
     )
 
-    # ---- optional in-RAM preload of the recon volumes (faster, needs the data mounted) ----
+    # ---- optional in-RAM preload of the recon volumes (faster; needs the data reachable) ----
     pre_tr = (ff.preload_data(x0_tr), ff.preload_data(cond_tr)) if preload else None
     pre_va = (ff.preload_data(x0_va), ff.preload_data(cond_va)) if preload else None
 
