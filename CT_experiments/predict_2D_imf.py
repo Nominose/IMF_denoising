@@ -25,7 +25,7 @@ def get_args_parser():
     parser.add_argument('--epoch', type=int, required=True)
     parser.add_argument('--mode', type=str, required=True, choices=['pred', 'avg'])
     parser.add_argument('--input', type=str, default='both', choices=['both', 'odd', 'even'])
-    parser.add_argument('--slice_range', type=str, default="100-200")
+    parser.add_argument('--slice_range', type=str, default="150-200")  # Mayo: slices 150-200 to match the prior paper
     parser.add_argument('--iteration_num', type=int, default=20)
     parser.add_argument('--num_steps', type=int, default=1, help='NFE per sample: 1 for one-step, 2+ for multistep')
     parser.add_argument('--solver', type=str, default='euler', choices=['euler', 'midpoint', 'heun'])
