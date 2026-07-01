@@ -152,7 +152,7 @@ def main():
     gen_tr = G(
         supervision=supervision, preload=preload, preload_data=pre_tr,
         img_list=x0_tr, condition_list=cond_tr, image_size=image_size,
-        num_slices_per_image=50, random_pick_slice=True, slice_range=None,
+        num_slices_per_image=50, random_pick_slice=True, slice_range=[150, 200],  # train ONLY on 150-200 (match DDM2 + eval, per advisor)
         num_patches_per_slice=args.num_patches_per_slice, patch_size=args.patch_size,
         histogram_equalization=histogram_equalization, bins=None, bins_mapped=None,
         background_cutoff=args.background_cutoff, maximum_cutoff=args.maximum_cutoff,
