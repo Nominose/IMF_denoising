@@ -22,7 +22,7 @@ import sys
 # --- make `import IMF_denoising...` work regardless of where the repo is mounted ---
 _HERE = os.path.dirname(os.path.abspath(__file__))            # .../IMF_denoising/Thinslice_experiments
 _REPO_PARENT = os.path.dirname(os.path.dirname(_HERE))        # dir that CONTAINS the IMF_denoising folder
-for _p in (_REPO_PARENT, '/host/c/Users/ROG/Documents/GitHub'):
+for _p in (_REPO_PARENT, '/gpfs/work/aac/xingyiyao23/Code', '/host/c/Users/ROG/Documents/GitHub'):
     if _p not in sys.path:
         sys.path.append(_p)
 
@@ -39,16 +39,27 @@ import IMF_denoising.Generator_thinslice as Generator
 from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
 
 
-# --- auto-detect the real data root. Docker mounts the whole D: drive at /host/d, and the actual
-#     data lives under D:\research, i.e. /host/d/research. Older scripts/xlsx assume /host/d. ---
+# --- auto-detect the real data root. HPC cluster root first (/gpfs/work/aac/xingyiyao23), then
+#     the docker D: mounts (D:\research -> /host/d/research; older scripts/xlsx assume /host/d). ---
 def _detect_base():
-    for b in ('/host/d/research', '/host/d'):
+    for b in ('/gpfs/work/aac/xingyiyao23', '/host/d/research', '/host/d'):
         if os.path.isdir(os.path.join(b, 'Data')):
             return b
-    return '/host/d/research'
+    return '/gpfs/work/aac/xingyiyao23'
 
 
 _BASE = _detect_base()
+
+
+def _he_bins(name):
+    """Locate a histogram-equalization bins file. On the HPC cluster they live under
+    <base>/Data/histogram_equalization/ (same as train_2D_imf.py); the original docker tree kept
+    them under <base>/file/histogram_equalization/. Return whichever exists (HPC layout first)."""
+    for sub in ('Data/histogram_equalization', 'file/histogram_equalization'):
+        cand = os.path.join(_BASE, sub, name)
+        if os.path.exists(cand):
+            return cand
+    return os.path.join(_BASE, 'Data/histogram_equalization', name)
 
 
 def _remap(p):
@@ -93,8 +104,8 @@ def get_args_parser():
     p.add_argument('--study_folder', type=str, default=os.path.join(_BASE, 'projects/denoising/models'))
     p.add_argument('--patient_list_file', type=str,
                    default=os.path.join(_BASE, 'Data/brain_CT/Patient_lists/fixedCT_static_simulation_train_test_gaussian_xjtlu.xlsx'))
-    p.add_argument('--bins', type=str, default=os.path.join(_BASE, 'file/histogram_equalization/bins.npy'))
-    p.add_argument('--bins_mapped', type=str, default=os.path.join(_BASE, 'file/histogram_equalization/bins_mapped.npy'))
+    p.add_argument('--bins', type=str, default=_he_bins('bins.npy'))
+    p.add_argument('--bins_mapped', type=str, default=_he_bins('bins_mapped.npy'))
     return p
 
 
