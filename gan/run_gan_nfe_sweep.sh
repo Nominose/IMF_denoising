@@ -37,7 +37,7 @@ set -u
 
 source /gpfs/spack/opt/linux-rocky8-icelake/gcc-8.5.0/anaconda3-2022.10-4dp3trddxrrzcg6rozuot7ckgh3zjche/etc/profile.d/conda.sh
 conda activate n2ndm
-export PYTHONPATH=/gpfs/work/aac/xingyiyao23/Code:$PYTHONPATH
+export PYTHONPATH=/gpfs/work/aac/xingyiyao23/Code:${PYTHONPATH:-}   # ${..:-} so `set -u` tolerates an unset PYTHONPATH
 REPO=/gpfs/work/aac/xingyiyao23/Code/IMF_denoising      # sbatch spools the script -> hardcode, don't use BASH_SOURCE
 cd "$REPO"
 PRED="$REPO/Thinslice_experiments/predict_2D_imf_v2.py"
