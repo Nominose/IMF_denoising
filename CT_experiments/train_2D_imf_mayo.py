@@ -162,7 +162,7 @@ def main():
     gen_va = G(
         supervision=supervision, preload=preload, preload_data=pre_va,
         img_list=x0_va, condition_list=cond_va, image_size=image_size,
-        num_slices_per_image=90, random_pick_slice=False, slice_range=[100, 190],
+        num_slices_per_image=50, random_pick_slice=False, slice_range=[150, 200],  # eval region, matches prior paper
         num_patches_per_slice=1, patch_size=[512, 512],
         histogram_equalization=histogram_equalization, bins=None, bins_mapped=None,
         background_cutoff=args.background_cutoff, maximum_cutoff=args.maximum_cutoff,
