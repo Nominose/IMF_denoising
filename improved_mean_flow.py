@@ -644,7 +644,17 @@ class Sampler(object):
         # Process multiple slices per forward (batch over slices) to actually use the GPU.
         # slice_batch defaults to 1 (== old per-slice behavior); set sampler.slice_batch to raise it.
         # Each slice still gets independent init noise, so batching is numerically a no-op vs batch=1.
+        #
+        # Adaptive batching (set self.auto_batch=True): on a clean full-batch forward the batch GROWS
+        # (x2) until it hits a memory ceiling or self.max_slice_batch; on CUDA OOM it backs off (halve).
+        # The tuned batch AND the discovered OOM ceiling PERSIST on the Sampler (self.slice_batch /
+        # self._sb_ceiling), so across the K stochastic samples and the cases we pay the auto-tune
+        # warm-up only once, then run every forward at the largest batch that fits the GPU.
         slice_batch = max(1, int(getattr(self, "slice_batch", 1) or 1))
+        auto_batch = bool(getattr(self, "auto_batch", False))
+        max_slice_batch = int(getattr(self, "max_slice_batch", 0) or 0)     # 0 = no hard cap
+        sb_ceiling = getattr(self, "_sb_ceiling", None)                     # smallest known-OOM batch
+        sb_ceiling = float("inf") if sb_ceiling in (None, 0) else sb_ceiling
         n_slices = condition_img.shape[-1]
 
         with torch.inference_mode():
@@ -676,8 +686,12 @@ class Sampler(object):
                 except RuntimeError as e:
                     if "out of memory" in str(e).lower() and slice_batch > 1:
                         torch.cuda.empty_cache()
+                        sb_ceiling = slice_batch                     # this batch does not fit
                         slice_batch = max(1, slice_batch // 2)
-                        print(f"[sample_2D] CUDA OOM -> reducing slice_batch to {slice_batch}", flush=True)
+                        if auto_batch:                               # remember it so we never retry too big
+                            self.slice_batch = slice_batch
+                            self._sb_ceiling = sb_ceiling
+                        print(f"[sample_2D] CUDA OOM at slice_batch={sb_ceiling}, retrying at {slice_batch}", flush=True)
                         continue
                     raise
 
@@ -686,6 +700,15 @@ class Sampler(object):
                     pred[:, :, z + j] = out[j, 0]
                 z += b
                 pbar.update(b)
+
+                # auto-grow: only after a forward that fully used the current batch (proof it fit),
+                # and only strictly below the discovered OOM ceiling and the optional hard cap.
+                if auto_batch and b == slice_batch:
+                    nxt = slice_batch * 2
+                    if nxt < sb_ceiling and (max_slice_batch == 0 or nxt <= max_slice_batch):
+                        slice_batch = nxt
+                        self.slice_batch = slice_batch               # persist across samples/cases
+                        print(f"[sample_2D] auto-grow slice_batch -> {slice_batch}", flush=True)
             pbar.close()
 
         if need_change_dim:

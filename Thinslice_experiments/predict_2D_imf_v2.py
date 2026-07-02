@@ -94,7 +94,13 @@ def get_args_parser():
     p.add_argument('--num_steps', type=int, default=3, help='NFE per sample (euler). Use 3 and 5.')
     p.add_argument('--solver', type=str, default='euler', choices=['euler', 'midpoint', 'heun'])
     p.add_argument('--schedule', type=str, default='uniform', choices=['uniform', 'optimal'])
-    p.add_argument('--slice_batch', type=int, default=8, help='slices per GPU forward (auto-halves on CUDA OOM)')
+    p.add_argument('--slice_batch', type=int, default=8, help='initial slices per GPU forward (auto-tuned up/down when --auto_batch)')
+    p.add_argument('--auto_batch', dest='auto_batch', action='store_true', default=True,
+                   help='adaptively grow slice_batch (x2) until CUDA OOM / --max_slice_batch, halving on OOM (default ON)')
+    p.add_argument('--no_auto_batch', dest='auto_batch', action='store_false',
+                   help='disable adaptive batching: keep a fixed --slice_batch (still shrinks on OOM)')
+    p.add_argument('--max_slice_batch', type=int, default=64,
+                   help='hard cap for auto-grown slice_batch (0 = unlimited, CUDA OOM is the only ceiling)')
     p.add_argument('--amp', action='store_true', help='fp16 autocast during sampling (faster on RTX, ~same result)')
     p.add_argument('--k_save', type=int, nargs='+', default=[10, 20], help='which avg-of-K volumes to write in avg mode')
     p.add_argument('--cleanup', action='store_true', help='avg mode: after averaging, delete per-sample volumes + non-kept scans to free disk')
@@ -188,6 +194,13 @@ def run(args):
     sampler.load_model(trained_model_filename)   # strict load of model + EMA (verified OK for v2)
     print('model + EMA loaded.')
 
+    # adaptive slice-batching knobs — set ONCE here (not per case) so the auto-tuned batch and the
+    # discovered OOM ceiling persist across every case + stochastic sample (warm-up is paid once).
+    sampler.slice_batch = args.slice_batch
+    sampler.auto_batch = args.auto_batch
+    sampler.max_slice_batch = args.max_slice_batch
+    print(f'slice-batching: start={args.slice_batch} auto={args.auto_batch} max={args.max_slice_batch}')
+
     G = Generator.Dataset_2D
 
     for i in range(n.shape[0]):
@@ -232,7 +245,6 @@ def run(args):
                 shuffle=False, augment=False,
             )
             sampler.generator = generator
-            sampler.slice_batch = args.slice_batch
             sampler.model = sampler.ema.ema_model            # sample from EMA weights
 
             for iteration in range(1, args.iteration_num + 1):
@@ -308,6 +320,10 @@ def run(args):
                     if os.path.isfile(fp):
                         os.remove(fp); removed += 1
                 print(f'  [cleanup] removed {removed} files (per-sample volumes + non-kept scans)')
+
+    if args.mode == 'pred':
+        print(f'[auto_batch] final tuned slice_batch = {getattr(sampler, "slice_batch", None)} '
+              f'(largest per-forward batch that fit; ceiling={getattr(sampler, "_sb_ceiling", None)})')
 
 
 if __name__ == '__main__':
