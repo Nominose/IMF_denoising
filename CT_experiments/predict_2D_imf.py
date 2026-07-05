@@ -19,6 +19,41 @@ import IMF_denoising.Generator as Generator
 from IMF_denoising.denoising_diffusion_pytorch.denoising_diffusion_pytorch.conditional_diffusion import Unet
 
 
+def _detect_base():
+    for b in ('/host/d/research', '/host/d', 'D:/research', '/d/research'):
+        if os.path.isdir(os.path.join(b, 'Data', '新mayo_data')):
+            return b
+    return '/host/d/research'
+
+
+_BASE = _detect_base()
+_MAYO_DATA = os.path.join(_BASE, 'Data', '新mayo_data')
+# stored recon/gt paths are /host/e/D/Data/low_dose_CT/<tail>; on D: the data is split across a few
+# folders (recons under Data/新mayo_data/simulation_highnoise_v2, clean GT under file/新建文件夹/mayo/nii_imgs).
+_REMAP_BASES = [
+    _MAYO_DATA,
+    os.path.join(_BASE, 'file', '新建文件夹', 'mayo'),
+    os.path.join(_BASE, 'file', 'new', 'mayo'),
+]
+
+
+def _remap(p):
+    """Resolve a stored /host/e path onto whichever D: folder actually holds it."""
+    if p is None:
+        return p
+    p = str(p)
+    if os.path.exists(p):
+        return p
+    old = '/host/e/D/Data/low_dose_CT'
+    if p.startswith(old + '/'):
+        tail = p[len(old):]
+        for base in _REMAP_BASES:
+            cand = base + tail
+            if os.path.exists(cand):
+                return cand
+    return p
+
+
 def get_args_parser():
     parser = argparse.ArgumentParser('iMF Inference Script')
     parser.add_argument('--trial_name', type=str, default='imf_unsupervised_gaussian_mayo')
@@ -42,7 +77,7 @@ def run(args):
     supervision = 'unsupervised'
     print('supervision:', supervision)
 
-    study_folder = '/host/d/projects/denoising/models'
+    study_folder = os.path.join(_BASE, 'projects/denoising/models')
     trained_model_filename = os.path.join(study_folder, trial_name, 'models/model-' + str(epoch) + '.pt')
     save_folder = os.path.join(study_folder, trial_name, 'pred_images_input_' + input_condition)
     os.makedirs(save_folder, exist_ok=True)
@@ -54,7 +89,7 @@ def run(args):
     normalize_factor = 'equation'
 
     # ========== Patient list ==========
-    build_sheet = Build_list.Build(os.path.join('/host/d/file/新建文件夹/mayo/mayo_flow_matching.xlsx'))
+    build_sheet = Build_list.Build(os.path.join(_MAYO_DATA, 'mayo_low_dose_CT_gaussian_simulation_highnoise_v2.xlsx'))
     _, patient_id_list, random_num_list, noise_file_all_list, noise_file_odd_list, noise_file_even_list, ground_truth_file_list, _ = \
         build_sheet.__build__(batch_list=['test'])
 
@@ -73,6 +108,7 @@ def run(args):
         downsample_list=(True, True, True, False),
         upsample_list=(True, True, True, False),
         full_attn=(None, None, False, True),
+        auxiliary_v_head=True,
     )
 
     diffusion_model = imf.ImprovedMeanFlow(
@@ -97,9 +133,9 @@ def run(args):
     for i in range(n.shape[0]):
         patient_id = patient_id_list[n[i]]
         random_num = random_num_list[n[i]]
-        noise_file_odd = noise_file_odd_list[n[i]]
-        noise_file_even = noise_file_even_list[n[i]]
-        gt_file = ground_truth_file_list[n[i]]
+        noise_file_odd = _remap(noise_file_odd_list[n[i]])
+        noise_file_even = _remap(noise_file_even_list[n[i]])
+        gt_file = _remap(ground_truth_file_list[n[i]])
 
         if input_condition == 'both':
             condition_files = [noise_file_odd, noise_file_even]
