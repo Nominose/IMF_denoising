@@ -380,6 +380,33 @@ class ImprovedMeanFlow(nn.Module):
         z = self.unnormalize(z)
         return z
 
+    def sample_truncated(self, condition=None, batch_size=16, num_hops=2, r_star=0.2, solver='euler'):
+        """Truncated readout (Rao-Blackwell): run `num_hops` Euler steps from t=1 down to t=r_star,
+        then take the diagonal Tweedie readout  x0 = z_{r*} - r* * u(z_{r*}, r*, r*)  instead of
+        sampling all the way to t=0. NFE = num_hops + 1. r_star->0 recovers full sampling; r_star=1
+        is the one-step posterior-mean (N2N regression) readout."""
+        if solver != 'euler':
+            raise NotImplementedError("sample_truncated only implements the 'euler' solver; "
+                                      "midpoint/heun are not wired in here (they'd silently run euler). (audit P2)")
+        device = self.device
+        if self.problem_dimension == "2D":
+            shape = (batch_size, self.channels, self.image_size[0], self.image_size[1])
+        else:
+            shape = (batch_size, self.channels, *self.image_size)
+        z = torch.randn(shape, device=device)
+        ts = torch.linspace(1.0, float(r_star), num_hops + 1, device=device)
+        for i in range(num_hops):
+            t_val, r_val = ts[i], ts[i + 1]
+            dt = t_val - r_val
+            t_b = torch.full((batch_size,), t_val, device=device)
+            r_b = torch.full((batch_size,), r_val, device=device)
+            z = z - dt * self._fn_u(z, r_b, t_b, condition)          # Euler hop t_val -> r_val
+        rs = torch.full((batch_size,), float(r_star), device=device)
+        x0 = z - float(r_star) * self._fn_u(z, rs, rs, condition)    # diagonal Tweedie readout at r*
+        x0 = self._maybe_clip(x0)
+        x0 = self.unnormalize(x0)
+        return x0
+
 
 # =============================================================================
 #  Trainer
@@ -519,6 +546,8 @@ class Trainer(object):
                         accelerator.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
                         self.opt.step()
                         self.opt.zero_grad()
+                        if self.accelerator.is_main_process:
+                            self.ema.update()   # EMA per optimizer-step (was once/epoch below → with update_every=10 it barely moved, and it ran AFTER save so ckpts held a stale EMA). audit P1
 
                     if count % 200 == 0:
                         print(f"  epoch {self.step+1} | batch {count} | loss {loss.item():.4f}", flush=True)
@@ -535,9 +564,6 @@ class Trainer(object):
                     self.save(self.step)
                 if self.step != 0 and divisible_by(self.step, self.train_lr_decay_every):
                     self.scheduler.step()
-
-                if self.accelerator.is_main_process:
-                    self.ema.update()
 
                 if self.step != 0 and divisible_by(self.step, self.validation_every):
                     print(f"validation at step {self.step}")
@@ -619,6 +645,8 @@ class Sampler(object):
         num_steps=1,
         solver='euler',
         schedule='uniform',
+        truncate_r=None,
+        num_hops=2,
     ):
         bg = self.background_cutoff
         mx = self.maximum_cutoff
@@ -669,7 +697,9 @@ class Sampler(object):
                     data_cond = None
 
                 try:
-                    if num_steps == 1:
+                    if truncate_r is not None:
+                        out = sampling_model.sample_truncated(condition=data_cond, batch_size=b, num_hops=num_hops, r_star=truncate_r, solver=solver)
+                    elif num_steps == 1:
                         out = sampling_model.sample(condition=data_cond, batch_size=b)
                     else:
                         out = sampling_model.sample_multistep(condition=data_cond, batch_size=b, num_steps=num_steps, solver=solver, schedule=schedule)
