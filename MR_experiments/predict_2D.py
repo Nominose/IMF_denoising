@@ -161,7 +161,6 @@ def run(args):
                         random_pick_slice = False,
                         slice_range = None if args.slice_range is None else [slice_start, slice_end],)
 
-                    sample:
                     sampler = ddpm.Sampler(diffusion_model,generator,batch_size = 1)
 
                     pred_img = sampler.sample_2D(trained_model_filename, condition_img, modality = 'MR')

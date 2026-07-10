@@ -133,8 +133,16 @@ def run(args):
     epoch = args.epoch
 
     trained_model_filename = os.path.join(args.study_folder, args.trial_name, 'models', f'model-{epoch}.pt')
-    # per-NFE output folder so NFE=3 and NFE=5 never overwrite each other
-    save_folder = os.path.join(args.study_folder, args.trial_name, f'pred_images_nfe{args.num_steps}')
+    # Config-encoded output folder so different NFE / solver / schedule / slice_range never share one
+    # (the "already done" resume check would otherwise silently reuse a wrong-config result). Default
+    # euler/uniform/30-80 keeps the plain `pred_images_nfe{N}` name (back-compatible); non-defaults get
+    # a suffix. NOTE: midpoint/heun do 2 function evals per step, so their TRUE NFE = 2*num_steps — the
+    # `_{solver}` suffix flags that; account for it when reporting NFE. (audit P1)
+    _cfg = f'nfe{args.num_steps}'
+    if args.solver != 'euler':      _cfg += f'_{args.solver}'
+    if args.schedule != 'uniform':  _cfg += f'_{args.schedule}'
+    if args.slice_range != '30-80': _cfg += f'_slice{args.slice_range}'
+    save_folder = os.path.join(args.study_folder, args.trial_name, f'pred_images_{_cfg}')
     os.makedirs(save_folder, exist_ok=True)
     print('data base  :', _BASE)
     print('checkpoint :', trained_model_filename)

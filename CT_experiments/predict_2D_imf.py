@@ -56,7 +56,7 @@ def _remap(p):
 
 def get_args_parser():
     parser = argparse.ArgumentParser('iMF Inference Script')
-    parser.add_argument('--trial_name', type=str, default='imf_unsupervised_gaussian_mayo')
+    parser.add_argument('--trial_name', type=str, default='imf_v2_unsupervised_gaussian_mayo')  # match train_2D_imf_mayo.py (old non-v-head default would strict-load-fail against the v-head model)
     parser.add_argument('--epoch', type=int, required=True)
     parser.add_argument('--mode', type=str, required=True, choices=['pred', 'avg'])
     parser.add_argument('--input', type=str, default='both', choices=['both', 'odd', 'even'])
@@ -79,7 +79,14 @@ def run(args):
 
     study_folder = os.path.join(_BASE, 'projects/denoising/models')
     trained_model_filename = os.path.join(study_folder, trial_name, 'models/model-' + str(epoch) + '.pt')
-    save_folder = os.path.join(study_folder, trial_name, 'pred_images_input_' + input_condition)
+    # Encode the run config in the output path so different NFE / solver / schedule / slice_range never
+    # share a folder — otherwise the per-iteration "already done" resume check would silently reuse a
+    # wrong-config result (e.g. an nfe1 run reused for an nfe3 request). (audit P1)
+    cfg = 'nfe' + str(args.num_steps)
+    if args.solver != 'euler':        cfg += '_' + args.solver
+    if args.schedule != 'uniform':    cfg += '_' + args.schedule
+    if args.slice_range != '150-200': cfg += '_slice' + args.slice_range
+    save_folder = os.path.join(study_folder, trial_name, 'pred_images_input_' + input_condition + '_' + cfg)
     os.makedirs(save_folder, exist_ok=True)
 
     image_size = [512, 512]
