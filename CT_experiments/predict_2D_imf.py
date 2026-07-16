@@ -134,6 +134,10 @@ def run(args):
     sampler.normalize_factor = normalize_factor
     sampler.histogram_equalization = histogram_equalization
     sampler.load_model(trained_model_filename)
+    # Batch 2 slices per forward. Tuned on a 12GB card: batch 8 thrashes the VRAM allocator
+    # (~11GB, 3.0 s/slice) while batch 2 stays at ~2GB and runs ~0.5 s/slice. Batching is
+    # numerically a no-op (each slice keeps its own init noise) — purely a throughput knob.
+    sampler.slice_batch = 2
     print("Model and EMA loaded from:", trained_model_filename)
 
     G = Generator.Dataset_2D
@@ -170,6 +174,14 @@ def run(args):
         if do_pred_or_avg == 'pred':
             iteration_num = args.iteration_num
 
+            # PERF: the condition volume + its Generator are identical across all K iterations
+            # (the K samples differ only by the sampler's fresh init noise, not the condition).
+            # Build each once, lazily, and reuse — avoids reloading the ~90MB condition volume and
+            # rebuilding the Generator (histogram-eq etc.) every iteration. Lazy build keeps fully
+            # 'already done' cases (which `continue` before use) from ever touching the volume.
+            cond_imgs = [None] * len(condition_files)
+            generators = [None] * len(condition_files)
+
             for iteration in range(1, iteration_num + 1):
                 print('iteration:', iteration)
 
@@ -185,33 +197,37 @@ def run(args):
                     print('already done')
                     continue
 
+                pred_per_condition = []
                 for condition_i in range(len(condition_files)):
                     condition_file = condition_files[condition_i]
                     print('condition file:', condition_file)
 
-                    # FIX #2: Load condition_img per branch
-                    condition_img = nb.load(condition_file).get_fdata()[:, :, slice_start:slice_end]
-                    slice_num = condition_img.shape[2]
+                    # Build condition_img + Generator once (lazily), then reuse across iterations.
+                    # sample_2D reads the actual conditioning from sampler.generator[...] and only
+                    # reads condition_img for shape/min (never mutates it), so reuse is safe.
+                    if generators[condition_i] is None:
+                        ci = nb.load(condition_file).get_fdata()[:, :, slice_start:slice_end]
+                        cond_imgs[condition_i] = ci
+                        generators[condition_i] = G(
+                            supervision=supervision,
+                            img_list=np.array([condition_file]),
+                            condition_list=np.array([condition_file]),
+                            image_size=image_size,
+                            num_slices_per_image=ci.shape[2],
+                            random_pick_slice=False,
+                            slice_range=None if args.slice_range == "all" else [slice_start, slice_end],
+                            histogram_equalization=histogram_equalization,
+                            bins=None,
+                            bins_mapped=None,
+                            background_cutoff=background_cutoff,
+                            maximum_cutoff=maximum_cutoff,
+                            normalize_factor=normalize_factor,
+                            shuffle=False,
+                            augment=False,
+                        )
+                    condition_img = cond_imgs[condition_i]
 
-                    generator = G(
-                        supervision=supervision,
-                        img_list=np.array([condition_file]),
-                        condition_list=np.array([condition_file]),
-                        image_size=image_size,
-                        num_slices_per_image=slice_num,
-                        random_pick_slice=False,
-                        slice_range=None if args.slice_range == "all" else [slice_start, slice_end],
-                        histogram_equalization=histogram_equalization,
-                        bins=None,
-                        bins_mapped=None,
-                        background_cutoff=background_cutoff,
-                        maximum_cutoff=maximum_cutoff,
-                        normalize_factor=normalize_factor,
-                        shuffle=False,
-                        augment=False,
-                    )
-
-                    sampler.generator = generator
+                    sampler.generator = generators[condition_i]
                     # Use EMA model without re-loading (already loaded once above)
                     original_model_ref = sampler.model
                     try:
@@ -221,6 +237,7 @@ def run(args):
                         sampler.model = original_model_ref
 
                     print(pred_img.shape)
+                    pred_per_condition.append(pred_img)
 
                     if len(condition_files) == 1:
                         nb.save(nb.Nifti1Image(pred_img, affine),
@@ -230,19 +247,17 @@ def run(args):
                                 os.path.join(save_folder_case, 'pred_img_' + condition_names[condition_i] + '.nii.gz'))
 
                 if len(condition_files) == 2:
-                    pred_img_final = np.zeros([len(condition_files), pred_img.shape[0], pred_img.shape[1], pred_img.shape[2]])
-                    for condition_i in range(len(condition_files)):
-                        pred_img_final[condition_i] = nb.load(
-                            os.path.join(save_folder_case, 'pred_img_' + condition_names[condition_i] + '.nii.gz')).get_fdata()
-                    pred_img_final = np.mean(pred_img_final, axis=0)
+                    # Average the two conditions in-memory (avoid reloading the odd/even .nii.gz we
+                    # just wrote — the avg step downstream only reads pred_img.nii.gz).
+                    pred_img_final = np.mean(np.stack(pred_per_condition, axis=0), axis=0)
                     nb.save(nb.Nifti1Image(pred_img_final, affine),
                             os.path.join(save_folder_case, 'pred_img.nii.gz'))
 
                 if iteration == 1:
                     nb.save(nb.Nifti1Image(gt_img, affine),
                             os.path.join(save_folder_case, 'gt_img.nii.gz'))
-                    # Save first condition image for reference
-                    cond_ref = nb.load(condition_files[0]).get_fdata()[:, :, slice_start:slice_end]
+                    # Save first condition image for reference (reuse already-loaded volume)
+                    cond_ref = cond_imgs[0] if cond_imgs[0] is not None else nb.load(condition_files[0]).get_fdata()[:, :, slice_start:slice_end]
                     nb.save(nb.Nifti1Image(cond_ref, affine),
                             os.path.join(save_folder_case, 'condition_img.nii.gz'))
 
