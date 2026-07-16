@@ -101,7 +101,11 @@ def get_args():
     ap.add_argument('--save_every', type=int, default=5)
     ap.add_argument('--validation_every', type=int, default=5)
     ap.add_argument('--pre_trained_model', default=None)
-    ap.add_argument('--start_step', type=int, default=0)
+    # Default None, NOT 0: the trainer treats any non-None value as an override of the step it just
+    # loaded from --pre_trained_model. With 0 as the default, resuming silently renumbered from epoch
+    # 0 while keeping the loaded optimizer/EMA state, and then overwrote the existing model-*.pt in
+    # the same trial dir. Pass it explicitly only when you actually mean to renumber.
+    ap.add_argument('--start_step', type=int, default=None)
     return ap.parse_args()
 
 

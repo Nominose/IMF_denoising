@@ -1,2 +1,21 @@
 .vscode/
 .claude/
+
+# Personal material that happens to live in this working tree. This repo is public:
+# a stray `git add -A` would publish it permanently into the history, and deleting it
+# later would not remove it. tmp/ is a scratch drawer -- ignore it wholesale and opt
+# individual files back in (eval_mayo.py produces the paper's Mayo numbers).
+application/
+tmp/*
+!tmp/eval_mayo.py
+*.docx
+build_exam_handbook.py
+make_exam_contact_sheets.py
+
+# Generated artifacts. NOTE: 17 of these (.pyc / .DS_Store / .ipynb_checkpoints) are
+# already tracked from earlier commits; ignoring them here stops new ones but does not
+# untrack the existing ones -- that needs `git rm --cached`.
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
