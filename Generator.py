@@ -206,13 +206,16 @@ class Dataset_2D(Dataset):
             # print('x range is: ', random_origin_x, random_origin_x + self.patch_size[0], ' and y range is: ', random_origin_y, random_origin_y + self.patch_size[1])
 
         # target image
-        x0_image_data = np.copy(self.current_x0_data)[:,:,s] 
+        # Slice first, then copy: copying the whole cached volume just to keep one slice moves
+        # ~240MB per call to use ~1MB of it. Slicing yields a view, so .copy() on it is still an
+        # independent array (nothing aliases the cache) at 1/46th the cost.
+        x0_image_data = self.current_x0_data[:,:,s].copy()
         # crop the patch
         if self.num_patches_per_slice != None:
             x0_image_data = x0_image_data[random_origin_x:random_origin_x + self.patch_size[0], random_origin_y:random_origin_y + self.patch_size[1]]
         
         # condition image
-        condition_image_data = np.copy(self.current_condition_data)[:,:,s]
+        condition_image_data = self.current_condition_data[:,:,s].copy()
         if self.num_patches_per_slice != None:
             condition_image_data = condition_image_data[random_origin_x:random_origin_x + self.patch_size[0], random_origin_y:random_origin_y + self.patch_size[1]]
           

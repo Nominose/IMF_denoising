@@ -204,7 +204,7 @@ class Dataset_2D(Dataset):
             # print('x range is: ', random_origin_x, random_origin_x + self.patch_size[0], ' and y range is: ', random_origin_y, random_origin_y + self.patch_size[1])
 
         # target image
-        x0_image_data = np.copy(self.current_x0_data)[:,:,s] 
+        x0_image_data = self.current_x0_data[:,:,s].copy()
         # if self.target == 'mean':
         #     x0_image_data = (self.current_x0_data[:,:,s-1] + self.current_x0_data[:,:,s+1]) / 2
         # crop the patch
@@ -213,12 +213,12 @@ class Dataset_2D(Dataset):
         
         # condition image
         if self.supervision == 'supervised':
-            condition_image_data = np.copy(self.current_condition_data)[:,:,s]
+            condition_image_data = self.current_condition_data[:,:,s].copy()
             if self.num_patches_per_slice != None:
                 condition_image_data = condition_image_data[random_origin_x:random_origin_x + self.patch_size[0], random_origin_y:random_origin_y + self.patch_size[1]]
         elif self.supervision == 'unsupervised':
-            condition_image_data1 = np.copy(self.current_condition_data)[:,:,s-1]
-            condition_image_data2 = np.copy(self.current_condition_data)[:,:,s+1]
+            condition_image_data1 = self.current_condition_data[:,:,s-1].copy()
+            condition_image_data2 = self.current_condition_data[:,:,s+1].copy()
             if self.num_patches_per_slice != None:
                 condition_image_data1 = condition_image_data1[random_origin_x:random_origin_x + self.patch_size[0], random_origin_y:random_origin_y + self.patch_size[1]]
                 condition_image_data2 = condition_image_data2[random_origin_x:random_origin_x + self.patch_size[0], random_origin_y:random_origin_y + self.patch_size[1]]
@@ -391,7 +391,7 @@ class Dataset_2D_distilled(Dataset):
             # print('x range is: ', random_origin_x, random_origin_x + self.patch_size[0], ' and y range is: ', random_origin_y, random_origin_y + self.patch_size[1])
 
         # target image
-        x0_image_data = np.copy(self.current_x0_data)[:,:,s] 
+        x0_image_data = self.current_x0_data[:,:,s].copy()
         # if self.target == 'mean':
         #     x0_image_data = (self.current_x0_data[:,:,s-1] + self.current_x0_data[:,:,s+1]) / 2
         # crop the patch
@@ -399,8 +399,8 @@ class Dataset_2D_distilled(Dataset):
             x0_image_data = x0_image_data[random_origin_x:random_origin_x + self.patch_size[0], random_origin_y:random_origin_y + self.patch_size[1]]
         
         # condition image
-        condition_image_data1 = np.copy(self.current_condition_data)[:,:,s-1]
-        condition_image_data2 = np.copy(self.current_condition_data)[:,:,s+1]
+        condition_image_data1 = self.current_condition_data[:,:,s-1].copy()
+        condition_image_data2 = self.current_condition_data[:,:,s+1].copy()
         if self.num_patches_per_slice != None:
             condition_image_data1 = condition_image_data1[random_origin_x:random_origin_x + self.patch_size[0], random_origin_y:random_origin_y + self.patch_size[1]]
             condition_image_data2 = condition_image_data2[random_origin_x:random_origin_x + self.patch_size[0], random_origin_y:random_origin_y + self.patch_size[1]]
