@@ -104,7 +104,14 @@ def get_args():
     p.add_argument('--trial_name', type=str, default='imf_gan_unsupervised_gaussian_mayo')
     p.add_argument('--pretrained', type=str,
                    default=os.path.join(_BASE, 'projects/denoising/models/imf_v2_unsupervised_gaussian_mayo/models/model-200.pt'),
-                   help='flow-pretrained Mayo generator to fine-tune (loads its "model" weights)')
+                   help='flow-pretrained Mayo generator to fine-tune')
+    p.add_argument('--pretrained_weights', type=str, default='model', choices=['model', 'ema'],
+                   help="Which weights inside --pretrained to start from. 'model' (default) reproduces "
+                        "every GAN result reported so far. 'ema' starts from the checkpoint's EMA, "
+                        "which at the deployment K is the better model (Mayo L310 K=10: MAE 13.682 vs "
+                        "14.038, SSIM 0.673 vs 0.662) AND is the one the no-GAN baseline is scored on, "
+                        "so it removes the init mismatch from GAN-vs-no-GAN. Results from 'ema' are not "
+                        "comparable to the existing tables -- rerun the baseline side too.")
     p.add_argument('--patient_list_file',
                    default=os.path.join(_MAYO_DATA, 'mayo_low_dose_CT_gaussian_simulation_highnoise_v2.xlsx'))
     p.add_argument('--batch_train', nargs='+', default=['train'], help="xlsx 'batch' value(s) for training")
@@ -207,7 +214,7 @@ def main():
         adv_nfe=args.adv_nfe, save_every=args.save_every, fs_probe=fs_probe)
 
     if args.pretrained and os.path.isfile(args.pretrained):
-        trainer.load_generator(args.pretrained, key='model')
+        trainer.load_generator(args.pretrained, key=args.pretrained_weights)
     else:
         print(f'[GAN] WARNING: pretrained not found ({args.pretrained}) — GAN-from-scratch is unstable.', flush=True)
 

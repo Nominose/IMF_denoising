@@ -146,8 +146,36 @@ class GANTrainer:
         self.step = 0
 
     def load_generator(self, path, key='model'):
+        """Initialise G from a flow checkpoint's online weights ('model') or its EMA weights ('ema').
+
+        'ema' is not a plain state_dict: ema_pytorch stores initted/step plus BOTH an 'ema_model.*'
+        and an 'online_model.*' copy. Only 'ema_model.*' is the averaged one -- 'online_model.*' has
+        the same 260 key names and would silently load the raw weights instead, i.e. exactly what
+        key='ema' is meant to avoid. Hence the explicit prefix filter.
+
+        Why you may want 'ema': in the flow trainer's legacy path the "EMA" is really a snapshot of
+        epoch ~101 (see improved_mean_flow.py), and at the deployment K it is a measurably better
+        model than the epoch-200 online weights -- brain 214841 K=10 MAE 1.997 vs 2.156, SSIM 0.834
+        vs 0.800; Mayo L310 K=10 MAE 13.682 vs 14.038. Starting the adversarial fine-tune from the
+        better model, which is also the one the no-GAN baseline is scored on, removes the init
+        mismatch from the GAN-vs-no-GAN comparison. It does NOT remove the other mismatch: the GAN
+        still gets extra epochs the baseline never had, so an adv_weight=0 control is still needed
+        to attribute anything to the adversarial loss itself.
+        """
         data = torch.load(path, map_location=self.device)
-        self.G.load_state_dict(data[key])
+        if key == 'ema':
+            src = data['ema']
+            pfx = 'ema_model.'
+            sd = {k[len(pfx):]: v for k, v in src.items() if k.startswith(pfx)}
+            if not sd:
+                raise KeyError(f"no '{pfx}*' entries in checkpoint['ema'] of {path}")
+            missing = set(self.G.state_dict().keys()) - set(sd.keys())
+            if missing:
+                raise KeyError(f"checkpoint['ema'] is missing {len(missing)} generator params, "
+                               f"e.g. {sorted(missing)[:3]}")
+        else:
+            sd = data[key]
+        self.G.load_state_dict(sd)
         self.ema.ema_model.load_state_dict(self.G.state_dict())   # sync EMA to loaded weights (else it stays at random init)
         print(f'[GAN] loaded pretrained generator ({key}) from {path}', flush=True)
 

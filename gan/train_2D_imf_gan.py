@@ -74,7 +74,14 @@ def get_args():
     p.add_argument('--trial_name', type=str, default='imf_gan_unsupervised_gaussian_brainCT')
     p.add_argument('--pretrained', type=str,
                    default=os.path.join(_BASE, 'projects/denoising/models/imf_v2_unsupervised_gaussian_brainCT/models/model-200.pt'),
-                   help='flow-pretrained generator checkpoint to fine-tune (loads its "model" weights)')
+                   help='flow-pretrained generator checkpoint to fine-tune')
+    p.add_argument('--pretrained_weights', type=str, default='model', choices=['model', 'ema'],
+                   help="Which weights inside --pretrained to start from. 'model' (default) reproduces "
+                        "every GAN result reported so far. 'ema' starts from the checkpoint's EMA, "
+                        "which at the deployment K is the better model (brain 214841 K=10: MAE 1.997 "
+                        "vs 2.156, SSIM 0.834 vs 0.800) AND is the one the no-GAN baseline is scored "
+                        "on, so it removes the init mismatch from GAN-vs-no-GAN. Results from 'ema' "
+                        "are not comparable to the existing tables -- rerun the baseline side too.")
     p.add_argument('--train_num_steps', type=int, default=50, help='epochs of GAN fine-tuning')
     p.add_argument('--batch_size', type=int, default=4, help='4 (was 2): bigger batch -> less noisy D gradient; raise if VRAM allows (3-step rollout backprop is memory-heavy)')
     p.add_argument('--lr_g', type=float, default=1e-4, help='normal GAN-finetune lr (<= lr_d) so G actually responds to adv; watch flow loss does not blow up')
@@ -154,7 +161,7 @@ def main():
         adv_nfe=args.adv_nfe, save_every=args.save_every, fs_probe=fs_probe)
 
     if args.pretrained and os.path.isfile(args.pretrained):
-        trainer.load_generator(args.pretrained, key='model')
+        trainer.load_generator(args.pretrained, key=args.pretrained_weights)
     else:
         print('[GAN] WARNING: no pretrained generator loaded — training GAN from scratch is unstable.', flush=True)
 

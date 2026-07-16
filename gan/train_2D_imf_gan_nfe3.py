@@ -83,7 +83,13 @@ def get_args():
                    help='SEPARATE folder from the NFE=1 run so they never collide')
     p.add_argument('--pretrained', type=str,
                    default=os.path.join(_BASE, 'projects/denoising/models/imf_v2_unsupervised_gaussian_brainCT/models/model-200.pt'),
-                   help='flow-pretrained generator checkpoint to fine-tune (loads its "model" weights)')
+                   help='flow-pretrained generator checkpoint to fine-tune')
+    p.add_argument('--pretrained_weights', type=str, default='model', choices=['model', 'ema'],
+                   help="Which weights inside --pretrained to start from. 'model' (default) reproduces "
+                        "every GAN result reported so far. 'ema' starts from the checkpoint's EMA, "
+                        "which at the deployment K is the better model and is also the one the no-GAN "
+                        "baseline is scored on, so it removes the init mismatch from GAN-vs-no-GAN. "
+                        "Results from 'ema' are not comparable to the existing tables.")
     p.add_argument('--train_num_steps', type=int, default=50, help='epochs of GAN fine-tuning')
     p.add_argument('--batch_size', type=int, default=2,
                    help='2 (smaller than the NFE=1 run): the 3-step rollout backprops through 3 forwards -> ~3x activation memory. Raise if VRAM allows.')
@@ -162,7 +168,7 @@ def main():
         adv_nfe=args.adv_nfe, save_every=args.save_every, fs_probe=fs_probe)
 
     if args.pretrained and os.path.isfile(args.pretrained):
-        trainer.load_generator(args.pretrained, key='model')
+        trainer.load_generator(args.pretrained, key=args.pretrained_weights)
     else:
         print('[GAN] WARNING: no pretrained generator loaded — training GAN from scratch is unstable.', flush=True)
 
