@@ -89,6 +89,10 @@ def get_args_parser():
     p.add_argument('--cleanup', action='store_true', help='avg mode: after averaging, delete per-sample volumes + non-kept scans to free disk')
     p.add_argument('--batch', type=int, nargs='+', default=[5], help='patient-list batch(es) to load (test=5; training=0-4)')
     p.add_argument('--patient', type=str, default=None, help='only process patient IDs containing this string, e.g. 214841')
+    p.add_argument('--weights', type=str, default='ema', choices=['ema', 'raw'],
+                   help="which weights to sample from: 'ema' (default, deployed behaviour) or 'raw' (the "
+                        "checkpoint's online 'model' weights). Use 'raw' to measure how much the EMA actually "
+                        "contributes; outputs go to a separate _raw folder so the two never collide.")
     # data / model roots — defaults derived from the auto-detected data base (e.g. /host/d/research)
     p.add_argument('--study_folder', type=str, default=os.path.join(_BASE, 'projects/denoising/models'))
     p.add_argument('--patient_list_file', type=str,
@@ -142,6 +146,7 @@ def run(args):
     if args.solver != 'euler':      _cfg += f'_{args.solver}'
     if args.schedule != 'uniform':  _cfg += f'_{args.schedule}'
     if args.slice_range != '30-80': _cfg += f'_slice{args.slice_range}'
+    if args.weights != 'ema':       _cfg += f'_{args.weights}'
     save_folder = os.path.join(args.study_folder, args.trial_name, f'pred_images_{_cfg}')
     os.makedirs(save_folder, exist_ok=True)
     print('data base  :', _BASE)
@@ -230,7 +235,9 @@ def run(args):
             )
             sampler.generator = generator
             sampler.slice_batch = args.slice_batch
-            sampler.model = sampler.ema.ema_model            # sample from EMA weights
+            if args.weights == 'ema':
+                sampler.model = sampler.ema.ema_model        # sample from EMA weights (deployed default)
+            # else: keep sampler.model, i.e. the checkpoint's online 'model' weights, untouched by load_model
 
             for iteration in range(1, args.iteration_num + 1):
                 save_folder_case = os.path.join(case_root, f'epoch{epoch}_{iteration}')
