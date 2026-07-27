@@ -154,7 +154,7 @@ def main():
         os.makedirs(os.path.dirname(args.xlsx_out), exist_ok=True)
         out.to_excel(args.xlsx_out, index=False)
         print(f'\nwritten: {args.xlsx_out}')
-        print('next: sbatch PCCT_experiments/run_train_imf_pcct.sh')
+        print('next: sbatch PCCT_experiments/run_pcct_all.sh   # flow + GAN + sweeps + CNR, one job')
     else:
         print('\ndry-run only — re-run with --write to save the corrected list.')
 
