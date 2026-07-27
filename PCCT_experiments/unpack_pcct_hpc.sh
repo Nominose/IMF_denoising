@@ -82,10 +82,10 @@ done
 echo
 if [ "$IMG" -eq 33 ] && [ "$GM" -eq 8 ] && [ "$WM" -eq 8 ] && [ "$bad" -eq 0 ]; then
   echo "OK — layout verified."
-  echo "next (fix_pcct_xlsx.py needs pandas+nibabel, which live in the n2ndm env, NOT in base):"
-  echo "  conda activate n2ndm"
+  echo "next (needs only pandas, so it runs in base too):"
   echo "  python PCCT_experiments/fix_pcct_xlsx.py            # preview the rewritten patient list"
   echo "  python PCCT_experiments/fix_pcct_xlsx.py --write    # write it"
+  echo "  sbatch PCCT_experiments/run_pcct_all.sh             # the whole study in one job"
 else
   echo "*** VERIFICATION FAILED — do not train until this is resolved ***"
   exit 1

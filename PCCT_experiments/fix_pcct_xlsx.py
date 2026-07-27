@@ -20,11 +20,29 @@ result is reported here rather than 20 hours into a training run.
 """
 import os
 import sys
+import gzip
+import struct
 import argparse
 
-import numpy as np
 import pandas as pd
-import nibabel as nb
+
+
+def _nii_shape(path):
+    """Volume shape straight from the NIfTI-1 header, without nibabel.
+
+    This is a data-prep step that runs on the LOGIN node, where the conda env holding nibabel is
+    usually not active -- depending on it made the script fail there for no good reason. The header
+    is the first 348 bytes: sizeof_hdr (348) at offset 0 doubles as an endianness check, dim[] lives
+    at offset 40 as 8 int16 with dim[0] = number of axes.
+    """
+    opener = gzip.open if path.endswith('.gz') else open
+    with opener(path, 'rb') as f:
+        h = f.read(348)
+    if len(h) < 348:
+        raise ValueError('truncated NIfTI header')
+    end = '<' if struct.unpack('<i', h[:4])[0] == 348 else '>'
+    dim = struct.unpack(end + '8h', h[40:56])
+    return tuple(dim[1:1 + dim[0]])
 
 
 def _detect_base():
@@ -91,7 +109,7 @@ def main():
         new_paths.append(p)
         if os.path.isfile(p):
             try:
-                new_slices.append(int(nb.load(p).shape[2]))
+                new_slices.append(int(_nii_shape(p)[2]))
             except Exception as e:
                 new_slices.append(-1)
                 missing.append((case, f'unreadable: {str(e)[:40]}'))
