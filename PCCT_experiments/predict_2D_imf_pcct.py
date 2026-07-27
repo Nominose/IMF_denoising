@@ -85,6 +85,28 @@ def _save_nifti(arr, affine, path):
     os.replace(tmp, path)
 
 
+def _edge_padded_copy(condition_file, out_path):
+    """Write an edge-replicated copy of a volume: [s0, s0, s1, ... s_{n-1}, s_{n-1}], n -> n+2.
+
+    Adjacent-slice conditioning reads s-1 and s+1 with NO bounds handling (Generator_thinslice), so
+    on the raw volume the first slice silently wraps to the last (numpy index -1) and the last slice
+    raises IndexError. Restricting to the interior would avoid that but drop slices 0 and n-1 from
+    the output -- and 5 of the 8 PCCT test cases carry ROI voxels on exactly those slices (WM on
+    z=0 for cases 30/32/33, ROI on z=49 for 31/34), so their CNR would be computed over a different
+    voxel population than Chen's.
+
+    Padding instead gives every real slice a genuine neighbour and keeps the output at the full n
+    slices, aligned 1:1 with the ROI masks. The two duplicated end slices are conditioning input
+    only; they are never themselves predicted. Edge replication is the usual convention for
+    neighbour operations at a boundary.
+    """
+    img = nb.load(condition_file)
+    vol = img.get_fdata()
+    padded = np.concatenate([vol[:, :, :1], vol, vol[:, :, -1:]], axis=2)
+    nb.save(nb.Nifti1Image(padded, img.affine), out_path)
+    return out_path, vol.shape[2]
+
+
 def get_args_parser():
     p = argparse.ArgumentParser('PCCT iMF inference')
     p.add_argument('--trial_name', type=str, default='imf_v2_unsupervised_PCCT',
@@ -196,16 +218,23 @@ def run(args):
         case_root = os.path.join(save_folder, case, f'random_{random_num}')
 
         if args.mode == 'pred':
+            # Feed the generator an EDGE-PADDED copy so all `slice_num` real slices keep a valid
+            # neighbour pair; slices 1..slice_num of the padded volume are exactly 0..slice_num-1 of
+            # the original, so the output stays aligned with the ROI masks. See _edge_padded_copy.
+            pad_path = os.path.join(case_root, f'.cond_padded_{case}.nii.gz')
+            ff.make_folder([os.path.join(save_folder, case), case_root])
+            _edge_padded_copy(condition_file, pad_path)
+
             # Build the generator ONCE per case: the condition volume is identical across the K
             # samples (diversity comes from the sampler's init noise, not from the data).
             generator = G(
                 supervision=supervision,
-                img_list=np.array([condition_file]),          # N2N: same volume is input and target
-                condition_list=np.array([condition_file]),
+                img_list=np.array([pad_path]),               # N2N: same volume is input and target
+                condition_list=np.array([pad_path]),
                 image_size=image_size,
                 num_slices_per_image=slice_num,
                 random_pick_slice=False,
-                slice_range=None if args.slice_range == 'all' else [slice_start, slice_end],
+                slice_range=[1, 1 + slice_num],              # the real slices inside the padded volume
                 histogram_equalization=histogram_equalization, bins=None, bins_mapped=None,
                 background_cutoff=background_cutoff, maximum_cutoff=maximum_cutoff,
                 normalize_factor=normalize_factor, shuffle=False, augment=False,
@@ -226,6 +255,9 @@ def run(args):
                 if iteration == 1:
                     # the noisy input = the CNR baseline. No gt_img: real PCCT has no ground truth.
                     _save_nifti(condition_img, affine, os.path.join(save_folder_case, 'condition_img.nii.gz'))
+
+            if os.path.isfile(pad_path):        # scratch conditioning copy, not a result
+                os.remove(pad_path)
 
         else:  # mode == 'avg'
             save_folder_avg = os.path.join(case_root, f'epoch{epoch}avg')

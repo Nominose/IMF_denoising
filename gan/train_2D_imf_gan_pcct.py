@@ -129,7 +129,9 @@ def main():
 
     gen_tr = Generator.Dataset_2D(
         supervision='unsupervised', img_list=x0_tr, condition_list=cond_tr, image_size=IMG,
-        num_slices_per_image=50, random_pick_slice=True, slice_range=None,
+        # 48, not 50 -- adjacent-slice conditioning drops the first and last slice; see
+        # PCCT_experiments/train_2D_imf_pcct.py for why asking for 50 raises IndexError.
+        num_slices_per_image=48, random_pick_slice=True, slice_range=None,
         num_patches_per_slice=2, patch_size=PATCH,
         histogram_equalization=HE, bins=None, bins_mapped=None,
         background_cutoff=BG, maximum_cutoff=MX, normalize_factor=NF,

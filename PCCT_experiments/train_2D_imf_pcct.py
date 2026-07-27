@@ -159,7 +159,11 @@ def main():
     gen_tr = G(
         supervision=supervision,
         img_list=x0_tr, condition_list=cond_tr, image_size=image_size,
-        num_slices_per_image=50, random_pick_slice=True, slice_range=None,   # every volume IS 50 slices
+        # 48, NOT 50: with adjacent-slice conditioning the first and last slice have no neighbour,
+        # so Generator_thinslice narrows slice_range=None to [1, n-1] -> 48 usable slices out of 50.
+        # num_slices_per_image only sets __len__, it is NOT clipped against that list, so asking for
+        # 50 indexes past the end and dies with IndexError partway through epoch 1.
+        num_slices_per_image=48, random_pick_slice=True, slice_range=None,
         num_patches_per_slice=args.num_patches_per_slice, patch_size=args.patch_size,
         histogram_equalization=histogram_equalization, bins=None, bins_mapped=None,
         background_cutoff=args.background_cutoff, maximum_cutoff=args.maximum_cutoff,
