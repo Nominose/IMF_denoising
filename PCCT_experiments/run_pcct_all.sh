@@ -41,11 +41,20 @@ FLOW_TRIAL="${FLOW_TRIAL:-imf_v2_unsupervised_PCCT}"
 GAN_TRIAL="${GAN_TRIAL:-imf_gan_unsupervised_PCCT}"
 FLOW_EPOCH="${FLOW_EPOCH:-200}"
 GAN_EPOCHS_TOTAL="${GAN_EPOCHS_TOTAL:-50}"
-GAN_SAVE_EVERY=10                      # -> checkpoints 10 20 30 40 50 (divides GAN_EPOCHS_TOTAL)
+# save_every 2 -> 25 checkpoints (2,4,..,50; divides GAN_EPOCHS_TOTAL so the final epoch IS saved).
+# Dense on purpose: GAN quality is non-monotone and its useful window can be narrow, so a coarse
+# grid can straddle the peak (with save_every 10, a peak at epoch 23 is simply never evaluated).
+# 25 x 571MB = 14.3GB is TEMPORARY -- stage 6 prunes down to the epochs actually worth keeping.
+# The binding cost is not disk but selection time: stage 4 runs inference per checkpoint.
+GAN_SAVE_EVERY="${GAN_SAVE_EVERY:-2}"
 NFES="${NFES:-1 2 3 5 10}"
 SEL_NFE="${SEL_NFE:-3}"                # NFE used to pick the best GAN epoch
+SEL_K="${SEL_K:-10}"                   # samples per case during selection (10 = a reported operating
+                                       # point; ranking epochs needs less averaging than the final numbers)
 ITER="${ITER:-20}"
 SKIP_GAN="${SKIP_GAN:-0}"
+PRUNE="${PRUNE:-1}"                    # 1 = delete the GAN checkpoints that lost the selection
+KEEP_NEIGHBOURS="${KEEP_NEIGHBOURS:-1}"  # also keep this many checkpoints either side of the winner
 
 banner () { echo; echo "################ $* ################"; echo "  $(date '+%F %T')"; }
 quota  () { mmlsquota --block-size auto 2>/dev/null | tail -1 || true; }
@@ -58,7 +67,7 @@ quota
 
 # ---------- stage 1: flow training ----------
 FLOW_CKPT="$MODELS/$FLOW_TRIAL/models/model-$FLOW_EPOCH.pt"
-banner "stage 1/6: flow training ($FLOW_TRIAL)"
+banner "stage 1/7: flow training ($FLOW_TRIAL)"
 if [ -f "$FLOW_CKPT" ]; then
   echo "[skip] $FLOW_CKPT already exists"
 else
@@ -70,7 +79,7 @@ fi
 quota
 
 # ---------- stage 2: baseline sweep + CNR (before the GAN, so results land early) ----------
-banner "stage 2/6: no-GAN sweep + CNR"
+banner "stage 2/7: no-GAN sweep + CNR"
 for NFE in $NFES; do
   echo "---- $FLOW_TRIAL NFE=$NFE ----"
   python "$PRED" --trial_name "$FLOW_TRIAL" --epoch "$FLOW_EPOCH" --mode pred \
@@ -89,7 +98,7 @@ fi
 
 # ---------- stage 3: GAN fine-tune ----------
 GAN_CKPT="$MODELS/$GAN_TRIAL/models/model-$GAN_EPOCHS_TOTAL.pt"
-banner "stage 3/6: GAN fine-tune ($GAN_TRIAL)"
+banner "stage 3/7: GAN fine-tune ($GAN_TRIAL)"
 if [ -f "$GAN_CKPT" ]; then
   echo "[skip] $GAN_CKPT already exists"
 else
@@ -102,25 +111,28 @@ fi
 quota
 
 # ---------- stage 4: pick the GAN epoch by CNR (quality is non-monotone -> do not assume the last) ----------
-banner "stage 4/6: GAN epoch selection @ NFE=$SEL_NFE"
+banner "stage 4/7: GAN epoch selection @ NFE=$SEL_NFE, K=$SEL_K"
 SAVED=$(ls "$MODELS/$GAN_TRIAL/models"/model-*.pt 2>/dev/null \
         | sed 's/.*model-\([0-9]*\)\.pt/\1/' | sort -n | tr '\n' ' ')
-echo "checkpoints available: $SAVED"
+echo "checkpoints to score: $SAVED"
+echo "(each is a full inference pass over the 8 test cases; --cleanup keeps disk flat between them)"
 for E in $SAVED; do
-  echo "---- epoch $E @ NFE=$SEL_NFE ----"
+  echo "---- epoch $E @ NFE=$SEL_NFE K=$SEL_K ----"
   python "$PRED" --trial_name "$GAN_TRIAL" --epoch "$E" --mode pred \
-    --num_steps "$SEL_NFE" --iteration_num "$ITER" || { echo "epoch $E pred failed, skipping"; continue; }
+    --num_steps "$SEL_NFE" --iteration_num "$SEL_K" || { echo "epoch $E pred failed, skipping"; continue; }
   python "$PRED" --trial_name "$GAN_TRIAL" --epoch "$E" --mode avg \
-    --num_steps "$SEL_NFE" --k_save 10 20 --cleanup || true
-  python "$EVAL" --trial "$GAN_TRIAL" --epoch "$E" --nfe "$SEL_NFE" --k 10 20 || true
+    --num_steps "$SEL_NFE" --k_save "$SEL_K" --cleanup || true
+  python "$EVAL" --trial "$GAN_TRIAL" --epoch "$E" --nfe "$SEL_NFE" --k "$SEL_K" || true
 done
 
-# best epoch = highest mean CNR at K=20 among the per-epoch xlsx just written
-BEST_EPOCH=$(python - "$MODELS/$GAN_TRIAL/pred_images_nfe$SEL_NFE" <<'PY'
+# best epoch = highest mean CNR among the per-epoch xlsx just written
+BEST_EPOCH=$(python - "$MODELS/$GAN_TRIAL/pred_images_nfe$SEL_NFE" "$SEL_K" <<'PY'
 import sys, glob, os, re
 import pandas as pd
-best, best_v = None, None
-for f in glob.glob(os.path.join(sys.argv[1], 'PCCT_CNR_epoch*_nfe*.xlsx')):
+folder, k = sys.argv[1], int(sys.argv[2])
+col_pref = [f'CNR_K{k}', 'CNR_K20', 'CNR_K10']
+rows = []
+for f in glob.glob(os.path.join(folder, 'PCCT_CNR_epoch*_nfe*.xlsx')):
     m = re.search(r'epoch(\d+)_nfe', os.path.basename(f))
     if not m:
         continue
@@ -128,12 +140,23 @@ for f in glob.glob(os.path.join(sys.argv[1], 'PCCT_CNR_epoch*_nfe*.xlsx')):
         d = pd.read_excel(f)
     except Exception:
         continue
-    if 'CNR_K20' not in d.columns:
+    col = next((c for c in col_pref if c in d.columns), None)
+    if col is None:
         continue
-    v = d['CNR_K20'].dropna().mean()
-    if v == v and (best_v is None or v > best_v):
-        best, best_v = int(m.group(1)), v
-print(best if best is not None else '')
+    v = d[col].dropna().mean()
+    if v == v:
+        rows.append((int(m.group(1)), float(v)))
+if rows:
+    rows.sort(key=lambda r: r[0])
+    # the full CNR-vs-epoch curve goes to the log: the shape (rising / peaked / collapsed) says more
+    # about whether the adversarial loss is helping than the winning number alone does.
+    sys.stderr.write('  epoch : CNR\n')
+    best = max(rows, key=lambda r: r[1])
+    for e, v in rows:
+        sys.stderr.write(f'  {e:>5} : {v:.4f}{"   <-- best" if e == best[0] else ""}\n')
+    print(best[0])
+else:
+    print('')
 PY
 )
 if [ -z "$BEST_EPOCH" ]; then
@@ -143,7 +166,7 @@ fi
 echo ">>> best GAN epoch by mean CNR(K=20) @ NFE=$SEL_NFE : $BEST_EPOCH"
 
 # ---------- stage 5: GAN sweep at the chosen epoch ----------
-banner "stage 5/6: GAN sweep + CNR (epoch $BEST_EPOCH)"
+banner "stage 5/7: GAN sweep + CNR (epoch $BEST_EPOCH)"
 for NFE in $NFES; do
   echo "---- $GAN_TRIAL epoch $BEST_EPOCH NFE=$NFE ----"
   python "$PRED" --trial_name "$GAN_TRIAL" --epoch "$BEST_EPOCH" --mode pred \
@@ -155,8 +178,34 @@ for NFE in $NFES; do
 done
 quota
 
-# ---------- stage 6: summary ----------
-banner "stage 6/6: summary"
+# ---------- stage 6: prune the GAN checkpoints that lost ----------
+banner "stage 6/7: prune GAN checkpoints"
+if [ "$PRUNE" = "1" ]; then
+  # Dense saving was only needed to LOCATE the peak; once found, keeping 25 x 571MB serves nothing.
+  # Kept: the winner, its immediate neighbours (so the choice can be revisited without retraining),
+  # and the final epoch (the "train to the end" reference). Everything else goes.
+  KEEP="$BEST_EPOCH $GAN_EPOCHS_TOTAL"
+  for d in $(seq 1 "$KEEP_NEIGHBOURS"); do
+    KEEP="$KEEP $((BEST_EPOCH - d * GAN_SAVE_EVERY)) $((BEST_EPOCH + d * GAN_SAVE_EVERY))"
+  done
+  echo "keeping epochs: $(echo $KEEP | tr ' ' '\n' | sort -n -u | tr '\n' ' ')"
+  freed=0
+  for f in "$MODELS/$GAN_TRIAL/models"/model-*.pt; do
+    [ -f "$f" ] || continue
+    e=$(basename "$f" | sed 's/model-\([0-9]*\)\.pt/\1/')
+    if ! echo " $KEEP " | grep -q " $e "; then
+      sz=$(du -m "$f" | cut -f1); rm -f "$f"; freed=$((freed + sz))
+    fi
+  done
+  echo "pruned, freed ~${freed} MB"
+  ls "$MODELS/$GAN_TRIAL/models"/model-*.pt 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' '; echo
+  quota
+else
+  echo "[skip] PRUNE=0 — all $(ls "$MODELS/$GAN_TRIAL/models"/model-*.pt 2>/dev/null | wc -l) checkpoints kept"
+fi
+
+# ---------- stage 7: summary ----------
+banner "stage 7/7: summary"
 python - "$MODELS" "$FLOW_TRIAL" "$FLOW_EPOCH" "$GAN_TRIAL" "$BEST_EPOCH" "$NFES" <<'PY'
 import sys, os, glob, re
 import numpy as np, pandas as pd
