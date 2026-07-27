@@ -38,12 +38,21 @@ rm -rf "$TMP"; mkdir -p "$TMP"
 for z in soft_thins_xy ROI; do
   echo; echo "--- unzip $z.zip ---"
   rm -rf "${TMP:?}/$z"; mkdir -p "$TMP/$z"
-  unzip -q -o "$SRC/$z.zip" -d "$TMP/$z" || { echo "unzip $z FAILED"; exit 1; }
+  # -x __MACOSX/*: zips made on macOS carry a parallel __MACOSX/ tree of AppleDouble stubs
+  # (._GM_ROI.nii.gz, a few hundred bytes each). It mirrors the real folder names, so without this
+  # the layout probe below can lock onto __MACOSX/ROI/29 and "find" cases that hold no real data.
+  unzip -q -o "$SRC/$z.zip" -x '__MACOSX/*' -d "$TMP/$z" || { echo "unzip $z FAILED"; exit 1; }
+  find "$TMP/$z" -name '._*' -delete 2>/dev/null || true
 
-  # find the directory that actually CONTAINS the numeric case folders (handles both layouts)
-  root=$(find "$TMP/$z" -type d -regex '.*/[0-9]+$' -printf '%h\n' 2>/dev/null | sort -u | head -1)
+  # Find the directory that actually CONTAINS the numeric case folders (handles both the flat and
+  # the nested layout). Pick the candidate holding the most real .nii.gz, so any decoy loses.
+  root=$(find "$TMP/$z" -type d -regex '.*/[0-9]+$' -not -path '*__MACOSX*' -printf '%h\n' 2>/dev/null \
+         | sort -u \
+         | while read -r cand; do
+             echo "$(find "$cand" -name '*.nii.gz' -not -name '._*' | wc -l) $cand"
+           done | sort -rn | head -1 | cut -d' ' -f2-)
   [ -n "$root" ] || { echo "no numeric case folders found inside $z.zip"; exit 1; }
-  echo "case folders found under: $root"
+  echo "case folders found under: $root  ($(find "$root" -name '*.nii.gz' -not -name '._*' | wc -l) volumes)"
 
   rm -rf "${DST:?}/$z"
   mv "$root" "$DST/$z" || { echo "move FAILED"; exit 1; }
@@ -73,8 +82,10 @@ done
 echo
 if [ "$IMG" -eq 33 ] && [ "$GM" -eq 8 ] && [ "$WM" -eq 8 ] && [ "$bad" -eq 0 ]; then
   echo "OK — layout verified."
-  echo "next: python PCCT_experiments/fix_pcct_xlsx.py            # preview the rewritten patient list"
-  echo "      python PCCT_experiments/fix_pcct_xlsx.py --write    # write it"
+  echo "next (fix_pcct_xlsx.py needs pandas+nibabel, which live in the n2ndm env, NOT in base):"
+  echo "  conda activate n2ndm"
+  echo "  python PCCT_experiments/fix_pcct_xlsx.py            # preview the rewritten patient list"
+  echo "  python PCCT_experiments/fix_pcct_xlsx.py --write    # write it"
 else
   echo "*** VERIFICATION FAILED — do not train until this is resolved ***"
   exit 1
