@@ -15,9 +15,11 @@
 # brain and Mayo GAN numbers were produced. On brain, EMA init was worth only ~0.5% MAE / ~3% LPIPS,
 # which does not justify making PCCT incomparable with the other two datasets.
 #
-# adv_weight 0.5 (flow loss stays dominant), adv_nfe 1 (single-step F(v) adversary), 50 epochs,
-# save_every 7 -> ~8 checkpoints (~4.5GB). GAN quality is NON-MONOTONE, so pick the deployed epoch
-# from fv_evolution/ + a CNR sweep rather than assuming the last one is best.
+# adv_weight 0.5 (flow loss stays dominant), adv_nfe 1 (single-step F(v) adversary), 50 epochs.
+# save_every 10 DIVIDES 50 -> checkpoints at 10/20/30/40/50, i.e. the final epoch is actually saved
+# (with save_every 7 the last one would be 49, and model-50.pt would never exist). ~2.9GB total.
+# GAN quality is NON-MONOTONE, so pick the deployed epoch by CNR across these checkpoints
+# (run_pcct_all.sh does this automatically) rather than assuming the last is best.
 set -u
 
 source /gpfs/spack/opt/linux-rocky8-icelake/gcc-8.5.0/anaconda3-2022.10-4dp3trddxrrzcg6rozuot7ckgh3zjche/etc/profile.d/conda.sh
@@ -37,4 +39,4 @@ python gan/train_2D_imf_gan_pcct.py \
   --adv_weight 0.5 \
   --train_num_steps 50 \
   --batch_size 16 \
-  --save_every 7
+  --save_every 10
