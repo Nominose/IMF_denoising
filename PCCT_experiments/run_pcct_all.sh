@@ -132,6 +132,14 @@ for E in $SAVED; do
   python "$PRED" --trial_name "$GAN_TRIAL" --epoch "$E" --mode avg \
     --num_steps "$SEL_NFE" --k_save "$SEL_K" --cleanup || true
   python "$EVAL" --trial "$GAN_TRIAL" --epoch "$E" --nfe "$SEL_NFE" --k "$SEL_K" || true
+
+  # Drop this epoch's volumes as soon as its CNR is in the xlsx. --cleanup only removes the
+  # per-sample files; the kept average + sample_std + condition_img still run ~150MB per case, so
+  # 25 epochs x 8 cases accumulates ~30GB and exhausted the quota before stage 5 could start.
+  # Nothing is lost: the xlsx (which lives one level up) holds the numbers, and stage 5 regenerates
+  # the winner at the full K anyway.
+  rm -rf "$MODELS/$GAN_TRIAL/pred_images_nfe$SEL_NFE"/*/random_*/epoch"${E}"avg \
+         "$MODELS/$GAN_TRIAL/pred_images_nfe$SEL_NFE"/*/random_*/epoch"${E}"_* 2>/dev/null || true
 done
 
 # best epoch = highest mean CNR among the per-epoch xlsx just written
