@@ -47,6 +47,10 @@ GAN_EPOCHS_TOTAL="${GAN_EPOCHS_TOTAL:-50}"
 # 25 x 571MB = 14.3GB is TEMPORARY -- stage 6 prunes down to the epochs actually worth keeping.
 # The binding cost is not disk but selection time: stage 4 runs inference per checkpoint.
 GAN_SAVE_EVERY="${GAN_SAVE_EVERY:-2}"
+ADV_WEIGHT="${ADV_WEIGHT:-0.5}"        # beta in L_flow + beta*L_adv. Lower = gentler adversarial
+                                       # pull, which is worth testing: at 0.5 the GAN yanks soft
+                                       # tissue ~10 HU off on the first epochs and spends the rest
+                                       # of training crawling back.
 NFES="${NFES:-1 2 3 5 10}"
 SEL_NFE="${SEL_NFE:-3}"                # NFE used to pick the best GAN epoch
 SEL_K="${SEL_K:-10}"                   # samples per case during selection (10 = a reported operating
@@ -113,7 +117,7 @@ if [ -f "$GAN_CKPT" ]; then
 else
   python gan/train_2D_imf_gan_pcct.py \
     --trial_name "$GAN_TRIAL" --pretrained "$FLOW_CKPT" --pretrained_weights model \
-    --adv_weight 0.5 --train_num_steps "$GAN_EPOCHS_TOTAL" \
+    --adv_weight "$ADV_WEIGHT" --train_num_steps "$GAN_EPOCHS_TOTAL" \
     --batch_size 16 --save_every "$GAN_SAVE_EVERY" || { echo "STAGE 3 FAILED"; exit 1; }
 fi
 [ -f "$GAN_CKPT" ] || { echo "no $GAN_CKPT after training — aborting"; exit 1; }
