@@ -126,6 +126,15 @@ def get_args_parser():
     p.add_argument('--no_auto_batch', dest='auto_batch', action='store_false')
     p.add_argument('--max_slice_batch', type=int, default=64,
                    help='cap for the auto-grown batch; the 50-slice volume is the real ceiling')
+    p.add_argument('--weights', type=str, default='ema', choices=['ema', 'raw'],
+                   help="Which copy of the trained model to sample from. 'ema' (default) reproduces "
+                        "every number reported so far. 'raw' uses the online weights -- needed here "
+                        "because the FLOW trainer calls ema.update() once per EPOCH rather than per "
+                        "optimizer step (improved_mean_flow.py), so with update_every=10 and "
+                        "update_after_step=100 its 'EMA' is ~96%% the epoch-100 weights. The GAN "
+                        "trainer updates per step, so 'ema' there is a genuine average. Comparing a "
+                        "no-GAN EMA against a GAN EMA therefore compares two very different points "
+                        "in training; --weights raw removes that confound.")
     p.add_argument('--k_save', type=int, nargs='+', default=[10, 20], help='which avg-of-K volumes to write')
     p.add_argument('--cleanup', action='store_true',
                    help='avg mode: after averaging, delete the per-sample volumes to free disk')
@@ -154,6 +163,7 @@ def run(args):
     if args.solver != 'euler':     cfg += '_' + args.solver
     if args.schedule != 'uniform': cfg += '_' + args.schedule
     if args.slice_range != 'all':  cfg += '_slice' + args.slice_range
+    if args.weights != 'ema':      cfg += '_' + args.weights   # keep raw-weight runs in their own folder
     save_folder = os.path.join(args.study_folder, args.trial_name, f'pred_images_{cfg}')
     os.makedirs(save_folder, exist_ok=True)
 
@@ -240,7 +250,9 @@ def run(args):
                 normalize_factor=normalize_factor, shuffle=False, augment=False,
             )
             sampler.generator = generator
-            sampler.model = sampler.ema.ema_model            # sample from EMA weights
+            if args.weights == 'ema':
+                sampler.model = sampler.ema.ema_model        # the averaged copy (see --weights)
+            # else: keep sampler.model as loaded = the online weights
 
             for iteration in range(1, args.iteration_num + 1):
                 save_folder_case = os.path.join(case_root, f'epoch{epoch}_{iteration}')
