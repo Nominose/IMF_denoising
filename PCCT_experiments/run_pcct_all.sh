@@ -80,7 +80,16 @@ quota
 
 # ---------- stage 2: baseline sweep + CNR (before the GAN, so results land early) ----------
 banner "stage 2/7: no-GAN sweep + CNR"
+# Skip an NFE whose CNR xlsx already exists. `pred` alone cannot resume here: the earlier
+# `avg --cleanup` deleted the per-sample volumes it would have skipped on, so without this check a
+# re-submit regenerates every sample just to recompute numbers that are already on disk. REDO=1
+# forces a fresh sweep (e.g. after changing K or the checkpoint).
 for NFE in $NFES; do
+  CNR_XLSX="$MODELS/$FLOW_TRIAL/pred_images_nfe$NFE/PCCT_CNR_epoch${FLOW_EPOCH}_nfe${NFE}.xlsx"
+  if [ "${REDO:-0}" != "1" ] && [ -f "$CNR_XLSX" ]; then
+    echo "---- $FLOW_TRIAL NFE=$NFE: [skip] CNR already computed ----"
+    continue
+  fi
   echo "---- $FLOW_TRIAL NFE=$NFE ----"
   python "$PRED" --trial_name "$FLOW_TRIAL" --epoch "$FLOW_EPOCH" --mode pred \
     --num_steps "$NFE" --iteration_num "$ITER" || { echo "STAGE 2 pred NFE=$NFE FAILED"; exit 1; }
@@ -188,6 +197,11 @@ echo ">>> GAN epoch selected by mean CNR(K=$SEL_K) @ NFE=$SEL_NFE : $BEST_EPOCH"
 # ---------- stage 5: GAN sweep at the chosen epoch ----------
 banner "stage 5/7: GAN sweep + CNR (epoch $BEST_EPOCH)"
 for NFE in $NFES; do
+  CNR_XLSX="$MODELS/$GAN_TRIAL/pred_images_nfe$NFE/PCCT_CNR_epoch${BEST_EPOCH}_nfe${NFE}.xlsx"
+  if [ "${REDO:-0}" != "1" ] && [ -f "$CNR_XLSX" ]; then
+    echo "---- $GAN_TRIAL epoch $BEST_EPOCH NFE=$NFE: [skip] CNR already computed ----"
+    continue
+  fi
   echo "---- $GAN_TRIAL epoch $BEST_EPOCH NFE=$NFE ----"
   python "$PRED" --trial_name "$GAN_TRIAL" --epoch "$BEST_EPOCH" --mode pred \
     --num_steps "$NFE" --iteration_num "$ITER" || { echo "STAGE 5 pred NFE=$NFE FAILED"; exit 1; }
