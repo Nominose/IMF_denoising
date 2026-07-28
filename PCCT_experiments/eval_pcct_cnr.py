@@ -74,9 +74,13 @@ def main():
     ap.add_argument('--study_folder', default=os.path.join(_BASE, 'projects/denoising/models'))
     ap.add_argument('--roi_dir', default=os.path.join(_BASE, 'Data/PCCT/ROI'))
     ap.add_argument('--out', default=None, help='xlsx to write (default: alongside the predictions)')
+    ap.add_argument('--folder', default=None,
+                    help='prediction folder to score, overriding the default pred_images_nfe<N>. '
+                         'Needed for runs whose config is encoded in the folder name, e.g. the '
+                         '--weights raw sweeps that land in pred_images_nfe<N>_raw.')
     args = ap.parse_args()
 
-    folder = os.path.join(args.study_folder, args.trial, f'pred_images_nfe{args.nfe}')
+    folder = args.folder or os.path.join(args.study_folder, args.trial, f'pred_images_nfe{args.nfe}')
     if not os.path.isdir(folder):
         raise SystemExit(f'predictions not found: {folder}\n(run the predict script for this NFE first)')
 
