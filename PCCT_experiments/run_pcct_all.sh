@@ -140,7 +140,11 @@ for E in $SAVED; do
     --num_steps "$SEL_NFE" --iteration_num "$SEL_K" || { echo "epoch $E pred failed, skipping"; continue; }
   python "$PRED" --trial_name "$GAN_TRIAL" --epoch "$E" --mode avg \
     --num_steps "$SEL_NFE" --k_save "$SEL_K" --cleanup || true
-  python "$EVAL" --trial "$GAN_TRIAL" --epoch "$E" --nfe "$SEL_NFE" --k "$SEL_K" || true
+  # Write to a DISTINCT filename. Selection runs at SEL_K only, so its xlsx lacks the other K
+  # columns; under the default name stage 5's skip check would mistake it for a finished sweep and
+  # leave SEL_NFE permanently missing its K=20 numbers.
+  python "$EVAL" --trial "$GAN_TRIAL" --epoch "$E" --nfe "$SEL_NFE" --k "$SEL_K" \
+    --out "$MODELS/$GAN_TRIAL/pred_images_nfe$SEL_NFE/PCCT_CNR_sel_epoch${E}_nfe${SEL_NFE}.xlsx" || true
 
   # Drop this epoch's volumes as soon as its CNR is in the xlsx. --cleanup only removes the
   # per-sample files; the kept average + sample_std + condition_img still run ~150MB per case, so
@@ -158,7 +162,7 @@ import pandas as pd
 folder, k = sys.argv[1], int(sys.argv[2])
 col_pref = [f'CNR_K{k}', 'CNR_K20', 'CNR_K10']
 rows = []
-for f in glob.glob(os.path.join(folder, 'PCCT_CNR_epoch*_nfe*.xlsx')):
+for f in glob.glob(os.path.join(folder, 'PCCT_CNR_sel_epoch*_nfe*.xlsx')):
     m = re.search(r'epoch(\d+)_nfe', os.path.basename(f))
     if not m:
         continue
