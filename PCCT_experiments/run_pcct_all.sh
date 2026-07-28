@@ -112,6 +112,15 @@ quota
 
 # ---------- stage 4: pick the GAN epoch by CNR (quality is non-monotone -> do not assume the last) ----------
 banner "stage 4/7: GAN epoch selection @ NFE=$SEL_NFE, K=$SEL_K"
+
+# Selection is the one stage that does NOT resume cheaply: it runs --cleanup, so the per-sample
+# volumes it would otherwise skip are gone, and a re-run regenerates inference for every checkpoint
+# (~2-3h). If a previous run already reported a winner, pass it back in to skip straight to stage 5:
+#     BEST_EPOCH=48 sbatch PCCT_experiments/run_pcct_all.sh
+if [ -n "${BEST_EPOCH:-}" ]; then
+  echo "[skip] BEST_EPOCH=$BEST_EPOCH supplied — reusing the earlier selection, not re-scoring"
+  SAVED=""
+else
 SAVED=$(ls "$MODELS/$GAN_TRIAL/models"/model-*.pt 2>/dev/null \
         | sed 's/.*model-\([0-9]*\)\.pt/\1/' | sort -n | tr '\n' ' ')
 echo "checkpoints to score: $SAVED"
@@ -163,7 +172,10 @@ if [ -z "$BEST_EPOCH" ]; then
   echo "[warn] epoch selection produced nothing — falling back to the final epoch $GAN_EPOCHS_TOTAL"
   BEST_EPOCH="$GAN_EPOCHS_TOTAL"
 fi
-echo ">>> best GAN epoch by mean CNR(K=20) @ NFE=$SEL_NFE : $BEST_EPOCH"
+fi   # end of the "no BEST_EPOCH supplied" branch
+echo ">>> GAN epoch selected by mean CNR(K=$SEL_K) @ NFE=$SEL_NFE : $BEST_EPOCH"
+[ -f "$MODELS/$GAN_TRIAL/models/model-$BEST_EPOCH.pt" ] \
+  || { echo "checkpoint for epoch $BEST_EPOCH is missing (pruned?) — aborting"; exit 1; }
 
 # ---------- stage 5: GAN sweep at the chosen epoch ----------
 banner "stage 5/7: GAN sweep + CNR (epoch $BEST_EPOCH)"
