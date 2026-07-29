@@ -21,11 +21,27 @@ VMIN, VMAX = -160.0, 240.0
 load = lambda p: np.asarray(nb.load(p).get_fdata(), dtype=np.float32) if os.path.isfile(p) else None
 
 
+# Clip to the display window before MAE/SSIM, exactly as calc_lpips already did. The mask is still
+# taken from the ORIGINAL GT -- clipping first would put every voxel inside the window and silently
+# change what is being averaged over.
+#
+# This used to differ per metric: LPIPS clipped, MAE and SSIM did not. SSIM is the one that cares,
+# because it is a local (7x7) statistic: the GT's out-of-window air (-1024) and bone (+1519) bleed
+# into the scores of in-window voxels, and data_range=400 is only honest once the data really spans
+# 400. On Mayo that cost ~0.042 SSIM -- enough that a table mixing the two conventions ranked methods
+# wrongly. MAE moves by only ~0.05 (a pointwise metric, and just 0.25% of in-mask voxels have an
+# out-of-window prediction), but it is clipped too so that all three metrics score the same image.
+def _win(a, b):
+    return np.clip(a, VMIN, VMAX), np.clip(b, VMIN, VMAX)
+
+
 def calc_mae(a, b):
     out = []
     for s in range(a.shape[-1]):
         m = ((b[:, :, s] >= VMIN) & (b[:, :, s] <= VMAX)).astype(np.float32); d = m.sum()
-        if d > 0: out.append(float((np.abs(a[:, :, s] - b[:, :, s]) * m).sum() / d))
+        if d == 0: continue
+        x, y = _win(a[:, :, s], b[:, :, s])
+        out.append(float((np.abs(x - y) * m).sum() / d))
     return float(np.mean(out)) if out else np.nan
 
 
@@ -34,7 +50,8 @@ def calc_ssim(a, b):
     for s in range(a.shape[-1]):
         m = ((b[:, :, s] >= VMIN) & (b[:, :, s] <= VMAX)).astype(np.float32); d = m.sum()
         if d == 0: continue
-        _, smap = structural_similarity(a[:, :, s], b[:, :, s], data_range=VMAX - VMIN, full=True)
+        x, y = _win(a[:, :, s], b[:, :, s])
+        _, smap = structural_similarity(x, y, data_range=VMAX - VMIN, full=True)
         out.append(float((smap * m).sum() / d))
     return float(np.mean(out)) if out else np.nan
 
