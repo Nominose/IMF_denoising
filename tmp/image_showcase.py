@@ -119,7 +119,8 @@ def cnr_chen(vol, gm, wm):
 
 
 # --------------------------------------------------------------------------- drawing
-def draw(rows, out_path, wl, ww, zoom=None, arrows=(), cnr=None, inset=0.42, dpi=300):
+def draw(rows, out_path, wl, ww, zoom=None, arrows=(), cnr=None, inset=0.42, dpi=300,
+         arrows_per_row=None):
     """rows: list of (row_label, [(col_label, image2d), ...]).  zoom: (x, y, half) in panel pixels."""
     ncol = max(len(r[1]) for r in rows)
     nrow = len(rows)
@@ -159,7 +160,7 @@ def draw(rows, out_path, wl, ww, zoom=None, arrows=(), cnr=None, inset=0.42, dpi
                     axin.set_xticks([]); axin.set_yticks([])
                     for s in axin.spines.values():
                         s.set_edgecolor("yellow"); s.set_linewidth(0.9)
-            for (ax_, ay_, dx_, dy_, col) in arrows:
+            for (ax_, ay_, dx_, dy_, col) in (arrows_per_row[r] if arrows_per_row else arrows):
                 ax.add_patch(FancyArrow(ax_, ay_, dx_, dy_, width=1.6, head_width=7,
                                         head_length=7, color=col, length_includes_head=True))
             if cnr is not None:
@@ -219,12 +220,74 @@ def fig_pcct(a):
          wl=40, ww=80, cnr=cnr, arrows=a.arrows)
 
 
+
+def fig_pcct_final(a):
+    """The two-row PCCT figure for the paper (paper Fig. 5 style): one row per case, arrows on the
+    detail being argued about, CNR printed per panel, and only the deployed variant shown as
+    "Ours". Exports PNG + PDF (vector, for LaTeX) + PPTX (one full-bleed slide, for slides)."""
+    P = os.path.join(R, "pcct")
+    rows, cnr = [], {}
+    for r, (case, sl, arrows) in enumerate(a.rows):
+        gan = os.path.join(P, "imf", "gan", f"imf_gan_unsupervised_PCCT_epoch48_nfe{a.nfe}", str(case))
+        gm = np.round(np.asarray(nb.load(os.path.join(gan, "GM_ROI.nii.gz")).dataobj)).astype(bool)
+        wm = np.round(np.asarray(nb.load(os.path.join(gan, "WM_ROI.nii.gz")).dataobj)).astype(bool)
+        panels = []
+        for c, (l, p) in enumerate([
+                ("PCCT FBP", os.path.join(gan, "condition_img.nii.gz")),
+                ("Noise2Noise", first(os.path.join(P, "noise2noise_results", str(case), "epoch*", "pred_img.nii.gz"))),
+                # DDM2 ships a first-step and a final-step image and neither is universally better,
+                # so the reference notebook picks per dataset too (first for Mayo, final for brain).
+                # On PCCT first-step wins on CNR: mean 0.446 vs 0.356 over the 8 cases, better on 5
+                # of them including both shown here (case 31 0.464 vs 0.314, case 36 -0.369 vs
+                # -1.026), and far less erratic (sd 0.42 vs 0.90). Showing the weaker one would
+                # flatter us for no reason.
+                ("DDM$^2$", os.path.join(P, "DDM2_results", str(case), f"ddm2_{a.ddm2}step_image.nii.gz")),
+                ("DDIM", first(os.path.join(P, "DDIM_results", str(case), "epoch*avg", "pred_img_scans8.nii.gz"))),
+                ("Ours", os.path.join(gan, "pred_img_scans20.nii.gz"))]):
+            if not p or not os.path.isfile(p):
+                print(f"  [warn] case{case} 缺: {l}"); panels.append((l, None)); continue
+            vol = np.asarray(nb.load(p).dataobj, np.float32)
+            v = cnr_chen(vol, gm, wm)
+            if v is not None:
+                cnr[(r, c)] = v
+            img = vol[a.center - a.half:a.center + a.half, a.center - a.half:a.center + a.half, sl]
+            panels.append((l, np.flip(img.T, 0)))
+        rows.append((f"Case {case}", panels))
+    base = os.path.join(OUT, "fig_pcct_" + "_".join(f"{c}s{s}" for c, s, _ in a.rows))
+    per_row_arrows = [ar for _, _, ar in a.rows]
+    draw(rows, base + ".png", wl=40, ww=80, cnr=cnr, arrows_per_row=per_row_arrows)
+    draw(rows, base + ".pdf", wl=40, ww=80, cnr=cnr, arrows_per_row=per_row_arrows)
+    to_pptx(base + ".png", base + ".pptx")
+
+
+def to_pptx(png, out):
+    """One 16:9 slide with the figure filling the width, on black."""
+    from pptx import Presentation
+    from pptx.util import Emu
+    from pptx.dml.color import RGBColor
+    from PIL import Image
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(12192000), Emu(6858000)      # 13.33 x 7.5 in
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    s.background.fill.solid(); s.background.fill.fore_color.rgb = RGBColor(0, 0, 0)
+    w, h = Image.open(png).size
+    pw = prs.slide_width - Emu(457200)                                    # 0.25" margin each side
+    ph = int(pw * h / w)
+    if ph > prs.slide_height - Emu(457200):
+        ph = prs.slide_height - Emu(457200); pw = int(ph * w / h)
+    s.shapes.add_picture(png, int((prs.slide_width - pw) / 2), int((prs.slide_height - ph) / 2), pw, ph)
+    prs.save(out)
+    print(f"  -> {out}")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--figure", choices=["mayo", "brain", "pcct", "all"], default="all")
+    ap.add_argument("--figure", choices=["mayo", "brain", "pcct", "pcct_final", "all"], default="all")
     ap.add_argument("--patient", default=None)
     ap.add_argument("--slice", type=int, default=None)
     ap.add_argument("--nfe", type=int, default=3)
+    ap.add_argument("--ddm2", choices=["first", "final"], default="first",
+                    help="which DDM2 output to show; first-step is the stronger one on PCCT")
     ap.add_argument("--center", type=int, default=256)
     ap.add_argument("--half", type=int, default=200, help="half-size of the square crop; 0 = no crop")
     ap.add_argument("--zx", type=int, default=0, help="zoom-box centre x in cropped-panel pixels")
@@ -240,6 +303,14 @@ if __name__ == "__main__":
         x, y = int(p[0]), int(p[1])
         col = p[2] if len(p) > 2 else "yellow"
         a.arrows.append((x - 34, y + 34, 26, -26, col))     # comes in from the lower left
+    if a.figure == "pcct_final":
+        # (case, slice, arrows) per row. Both rows are cases where our method beats DDIM on CNR;
+        # case 31 s49 is the slice picked by inspection, case 36 s22 gives a different anatomy
+        # (enlarged ventricles) so the two rows are not near-duplicates.
+        a.rows = [(31, 49, [(250, 245, 26, -26, "yellow")]),
+                  (36, 22, [(238, 150, 26, -26, "yellow")])]
+        print(f"[pcct_final] rows={[(c,s) for c,s,_ in a.rows]} nfe={a.nfe}")
+        fig_pcct_final(a); raise SystemExit
     figs = ["mayo", "brain", "pcct"] if a.figure == "all" else [a.figure]
     DEF = {"mayo": ("L291", 35), "brain": ("00214841", 25), "pcct": ("31", 49)}
     for f in figs:
