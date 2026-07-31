@@ -9,6 +9,7 @@ application/
 tmp/*
 !tmp/eval_mayo.py
 !tmp/collect_results.py
+!tmp/image_showcase.py
 *.docx
 build_exam_handbook.py
 make_exam_contact_sheets.py
