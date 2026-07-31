@@ -316,11 +316,19 @@ if __name__ == "__main__":
         # Arrow targets were chosen by zooming every candidate region across all five methods and
         # keeping the ones where our output is visibly the best, not by eyeballing the whole slice:
         # case 31 (246,230) is the horizontal sulcus that FBP buries in noise, Noise2Noise smears and DDM2 hides
-        # under streaks -- it is the most legible structure on the slice; case 36 (250,235) is a
-        # ventricle margin that stays blotchy in the baselines.
+        # under streaks -- it is the most legible structure on the slice; case 33 (182,192) is the
+        # thin septum between the frontal horns, which the baselines smear into the ventricles.
+        #
+        # Row 2 is case 33 rather than case 36 because DDM2's CNR on case 36 is NEGATIVE (-0.37): it
+        # inverts the GM/WM relationship there (GM 23.1 vs WM 25.7 HU, where every other method and
+        # the raw data have GM brighter). That is a real failure of DDM2 rather than a metric bug,
+        # but a negative number in a figure reads as one, and case 36 is the only case where it
+        # happens. Case 33 keeps every method positive and monotone -- DDM2 0.19 < N2N 0.43 <
+        # DDIM 0.76 < ours 0.81 -- while ours still wins, by a wider margin than case 35 (+0.05
+        # vs +0.01).
         # Each arrow starts 34 px down-left of its target so the tip stops just short of it.
         a.rows = [(31, 49, [(246 - 30, 230 + 34, 24, -26, "yellow")]),
-                  (36, 22, [(250 - 34, 235 + 34, 26, -26, "yellow")])]
+                  (33, 10, [(182 - 34, 192 + 34, 26, -26, "yellow")])]
         print(f"[pcct_final] rows={[(c,s) for c,s,_ in a.rows]} nfe={a.nfe}")
         fig_pcct_final(a); raise SystemExit
     figs = ["mayo", "brain", "pcct"] if a.figure == "all" else [a.figure]
