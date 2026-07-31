@@ -64,26 +64,30 @@ def main():
     ap.add_argument('--trial', required=True)
     ap.add_argument('--epoch', type=int, required=True)
     ap.add_argument('--nfe', type=int, required=True)
+    ap.add_argument('--k', type=int, nargs='+', default=[10, 20],
+                    help='which avg-of-K volumes to score. K=1 is the single-sample row of the '
+                         'reported tables, and was previously unreachable (10 and 20 were hardcoded).')
     args = ap.parse_args()
 
     dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     fn = lpips.LPIPS(net='alex').to(dev)
 
+    ks = sorted(set(args.k))
     folder = os.path.join(STUDY, args.trial, f'pred_images_nfe{args.nfe}')
     dirs = sorted(glob.glob(os.path.join(folder, '*', '*', 'random_*', f'epoch{args.epoch}avg')))
     print(f'nfe={args.nfe} epoch={args.epoch}: {len(dirs)} cases under {folder}')
-    res = {10: {'mae': [], 'ssim': [], 'lpips': []}, 20: {'mae': [], 'ssim': [], 'lpips': []}}
+    res = {k: {'mae': [], 'ssim': [], 'lpips': []} for k in ks}
     for d in dirs:
         gt = load(os.path.join(d, 'gt_img.nii.gz'))
         if gt is None: continue
-        for k in (10, 20):
+        for k in ks:
             pr = load(os.path.join(d, f'pred_img_scans{k}.nii.gz'))
             if pr is None: continue
             dd = min(pr.shape[-1], gt.shape[-1]); p, g = pr[..., :dd], gt[..., :dd]
             res[k]['mae'].append(calc_mae(p, g)); res[k]['ssim'].append(calc_ssim(p, g)); res[k]['lpips'].append(calc_lpips(p, g, fn, dev))
 
     std = lambda v: np.std(v, ddof=1) if len(v) > 1 else 0.0
-    for k in (10, 20):
+    for k in ks:
         m = res[k]
         if not m['mae']:
             print(f'RESULT K{k} NO_DATA'); continue
