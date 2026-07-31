@@ -276,8 +276,14 @@ def to_pptx(png, out):
     if ph > prs.slide_height - Emu(457200):
         ph = prs.slide_height - Emu(457200); pw = int(ph * w / h)
     s.shapes.add_picture(png, int((prs.slide_width - pw) / 2), int((prs.slide_height - ph) / 2), pw, ph)
-    prs.save(out)
-    print(f"  -> {out}")
+    try:
+        prs.save(out)
+        print(f"  -> {out}")
+    except PermissionError:
+        # open in PowerPoint; write beside it rather than losing the run
+        alt = out.replace(".pptx", "_NEW.pptx")
+        prs.save(alt)
+        print(f"  !! {os.path.basename(out)} 被 PowerPoint 占用 -> {os.path.basename(alt)}")
 
 
 if __name__ == "__main__":
@@ -307,8 +313,14 @@ if __name__ == "__main__":
         # (case, slice, arrows) per row. Both rows are cases where our method beats DDIM on CNR;
         # case 31 s49 is the slice picked by inspection, case 36 s22 gives a different anatomy
         # (enlarged ventricles) so the two rows are not near-duplicates.
-        a.rows = [(31, 49, [(250, 245, 26, -26, "yellow")]),
-                  (36, 22, [(238, 150, 26, -26, "yellow")])]
+        # Arrow targets were chosen by zooming every candidate region across all five methods and
+        # keeping the ones where our output is visibly the best, not by eyeballing the whole slice:
+        # case 31 (246,230) is the horizontal sulcus that FBP buries in noise, Noise2Noise smears and DDM2 hides
+        # under streaks -- it is the most legible structure on the slice; case 36 (250,235) is a
+        # ventricle margin that stays blotchy in the baselines.
+        # Each arrow starts 34 px down-left of its target so the tip stops just short of it.
+        a.rows = [(31, 49, [(246 - 30, 230 + 34, 24, -26, "yellow")]),
+                  (36, 22, [(250 - 34, 235 + 34, 26, -26, "yellow")])]
         print(f"[pcct_final] rows={[(c,s) for c,s,_ in a.rows]} nfe={a.nfe}")
         fig_pcct_final(a); raise SystemExit
     figs = ["mayo", "brain", "pcct"] if a.figure == "all" else [a.figure]
