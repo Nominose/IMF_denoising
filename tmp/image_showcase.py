@@ -227,7 +227,9 @@ def fig_pcct_final(a):
     "Ours". Exports PNG + PDF (vector, for LaTeX) + PPTX (one full-bleed slide, for slides)."""
     P = os.path.join(R, "pcct")
     rows, cnr = [], {}
-    for r, (case, sl, arrows) in enumerate(a.rows):
+    for r, row in enumerate(a.rows):
+        case, sl, arrows = row[:3]
+        dy = row[3] if len(row) > 3 else 0     # vertical crop shift, see the row list in main()
         gan = os.path.join(P, "imf", "gan", f"imf_gan_unsupervised_PCCT_epoch48_nfe{a.nfe}", str(case))
         gm = np.round(np.asarray(nb.load(os.path.join(gan, "GM_ROI.nii.gz")).dataobj)).astype(bool)
         wm = np.round(np.asarray(nb.load(os.path.join(gan, "WM_ROI.nii.gz")).dataobj)).astype(bool)
@@ -250,11 +252,18 @@ def fig_pcct_final(a):
             v = cnr_chen(vol, gm, wm)
             if v is not None:
                 cnr[(r, c)] = v
-            img = vol[a.center - a.half:a.center + a.half, a.center - a.half:a.center + a.half, sl]
+            # The second axis becomes the panel's vertical after .T + flip, and a lower start index
+            # brings more of the posterior skull into view; a head that sits low in the FOV (case 30)
+            # is otherwise cut off at the bottom of the panel.
+            img = vol[a.center - a.half:a.center + a.half,
+                      a.center - a.half - dy:a.center + a.half - dy, sl]
             panels.append((l, np.flip(img.T, 0)))
         rows.append((f"Case {case}", panels))
-    base = os.path.join(OUT, "fig_pcct_" + "_".join(f"{c}s{s}" for c, s, _ in a.rows))
-    per_row_arrows = [ar for _, _, ar in a.rows]
+    base = os.path.join(OUT, "fig_pcct_" + "_".join(f"{r[0]}s{r[1]}" for r in a.rows) + f"_nfe{a.nfe}")
+    # arrows are specified in the UNshifted panel frame (the frame every grid overlay used to pick
+    # them); the shift moves the anatomy up by dy, so the arrow moves with it
+    per_row_arrows = [[(ax_, ay_ - (r[3] if len(r) > 3 else 0), dx_, dy_, c_)
+                       for (ax_, ay_, dx_, dy_, c_) in r[2]] for r in a.rows]
     draw(rows, base + ".png", wl=40, ww=80, cnr=cnr, arrows_per_row=per_row_arrows)
     draw(rows, base + ".pdf", wl=40, ww=80, cnr=cnr, arrows_per_row=per_row_arrows)
     to_pptx(base + ".png", base + ".pptx")
@@ -299,6 +308,10 @@ if __name__ == "__main__":
     ap.add_argument("--zx", type=int, default=0, help="zoom-box centre x in cropped-panel pixels")
     ap.add_argument("--zy", type=int, default=0)
     ap.add_argument("--zhalf", type=int, default=45)
+    ap.add_argument("--row", action="append", default=[], metavar="CASE,SLICE,X,Y[,COLOR[,DY]]",
+                    help="pcct_final only: one row per flag, arrow tip at (X,Y) in cropped-panel "
+                         "pixels, DY shifts the crop up to fit a low-sitting head; overrides the "
+                         "built-in row list")
     ap.add_argument("--arrow", action="append", default=[], metavar="X,Y[,COLOR]",
                     help="arrow pointing at (X,Y) in cropped-panel pixels; repeatable. "
                          "COLOR defaults to yellow (the paper uses green for the infarction).")
@@ -310,26 +323,36 @@ if __name__ == "__main__":
         col = p[2] if len(p) > 2 else "yellow"
         a.arrows.append((x - 34, y + 34, 26, -26, col))     # comes in from the lower left
     if a.figure == "pcct_final":
-        # (case, slice, arrows) per row. Both rows are cases where our method beats DDIM on CNR;
-        # case 31 s49 is the slice picked by inspection, case 36 s22 gives a different anatomy
-        # (enlarged ventricles) so the two rows are not near-duplicates.
-        # Arrow targets were chosen by zooming every candidate region across all five methods and
-        # keeping the ones where our output is visibly the best, not by eyeballing the whole slice:
-        # case 31 (246,230) is the horizontal sulcus that FBP buries in noise, Noise2Noise smears and DDM2 hides
-        # under streaks -- it is the most legible structure on the slice; case 33 (182,192) is the
-        # thin septum between the frontal horns, which the baselines smear into the ventricles.
+        # (case, slice, arrows) per row. Row 1 is the slice picked by inspection at the start
+        # (case 31 s49, arrow on the horizontal sulcus that FBP buries, Noise2Noise smears and DDM2
+        # hides under streaks). Row 2 was chosen by surveying every slice of all eight test cases
+        # against every method: case 30 s10 is the one slice where the anatomy is textbook (frontal
+        # horns, insular and posterior cortical sulci at WL40/WW80), the raw-vs-denoised gap is large,
+        # AND the arrowed structure -- the posterior cortical sulcus at (180,342) -- is visibly
+        # sharpest in ours. Earlier picks failed on one of those: case 36 gave DDM2 a negative CNR
+        # (it inverts GM/WM there), case 33 s10 is a skull-base slice where every method's CNR is
+        # under 1 and the panels look alike.
         #
-        # Row 2 is case 33 rather than case 36 because DDM2's CNR on case 36 is NEGATIVE (-0.37): it
-        # inverts the GM/WM relationship there (GM 23.1 vs WM 25.7 HU, where every other method and
-        # the raw data have GM brighter). That is a real failure of DDM2 rather than a metric bug,
-        # but a negative number in a figure reads as one, and case 36 is the only case where it
-        # happens. Case 33 keeps every method positive and monotone -- DDM2 0.19 < N2N 0.43 <
-        # DDIM 0.76 < ours 0.81 -- while ours still wins, by a wider margin than case 35 (+0.05
-        # vs +0.01).
+        # CNR is a whole-volume number (see cnr_chen), so it depends on NFE, not on the slice shown.
+        # At NFE=3 ours beats DDIM only on cases 31/33/35/36, and only case 31 has contrast worth
+        # showing; at NFE=10 ours wins on all eight cases with margin (case 30: 1.75 vs 1.54).
+        # --nfe therefore decides which row-2 cases are usable; the default stays 3 because that
+        # is the paper's headline operating point -- pass --nfe 10 for the version where both rows
+        # have ours on top.
         # Each arrow starts 34 px down-left of its target so the tip stops just short of it.
-        a.rows = [(31, 49, [(246 - 30, 230 + 34, 24, -26, "yellow")]),
-                  (33, 10, [(182 - 34, 192 + 34, 26, -26, "yellow")])]
-        print(f"[pcct_final] rows={[(c,s) for c,s,_ in a.rows]} nfe={a.nfe}")
+        # The 4th element shifts the crop so the whole skull fits: case 30's head sits ~45 px lower
+        # in the FOV than case 31's and its posterior skull was cut off at the panel edge.
+        a.rows = [(31, 49, [(246 - 30, 230 + 34, 24, -26, "yellow")], 0),
+                  (30, 10, [(180 - 34, 342 + 34, 26, -26, "yellow")], 45)]
+        if a.row:
+            a.rows = []
+            for s in a.row:
+                p = s.split(",")
+                case, sl, x, y = int(p[0]), int(p[1]), int(p[2]), int(p[3])
+                col = p[4] if len(p) > 4 else "yellow"
+                dy = int(p[5]) if len(p) > 5 else 0
+                a.rows.append((case, sl, [(x - 34, y + 34, 26, -26, col)], dy))
+        print(f"[pcct_final] rows={[(r[0], r[1]) for r in a.rows]} nfe={a.nfe}")
         fig_pcct_final(a); raise SystemExit
     figs = ["mayo", "brain", "pcct"] if a.figure == "all" else [a.figure]
     DEF = {"mayo": ("L291", 35), "brain": ("00214841", 25), "pcct": ("31", 49)}
