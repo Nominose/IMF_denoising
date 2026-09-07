@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Shell scripts and Docker files must be checked out with LF on every platform: bash aborts on a
+# trailing CR ("$'\r': command not found") and Docker's line continuations break. core.autocrlf on
+# Windows would otherwise convert them.
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+docker/**   text eol=lf

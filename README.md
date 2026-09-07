@@ -88,8 +88,10 @@ IMF_denoising/
 - Python 3.10+, PyTorch 1.13+, CUDA GPU (12 GB+ recommended)
 - `nibabel`, `numpy`, `pandas`, `openpyxl`, `scikit-image`, `lpips`, `ema-pytorch`, `accelerate`
 
-Scripts are written for a Docker environment that mounts `D:\research` at `/host/d` and the repo
-under `/host/c/Users/ROG/Documents/GitHub`. Newer scripts auto-detect the data root (`/host/d/research`
+Scripts are written for the Docker environment in [`docker/`](docker/README.md): host drives are
+mounted at `/host/<drive>` (so data lives under `/host/d/research` and the repo under
+`/host/c/Users/ROG/Documents/GitHub`). Build the image and start the container with
+`bash docker/run_jupyter.sh --build`. Newer scripts auto-detect the data root (`/host/d/research`
 then `/host/d`) and remap stale paths, so absolute paths degrade gracefully.
 
 ## How to Run

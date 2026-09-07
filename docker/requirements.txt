@@ -1,0 +1,25 @@
+# Python deps for IMF_denoising, pinned to the versions of the environment the paper's numbers were
+# produced in (the pytorch_container image, dumped with `pip list` on 2026-09-07). torch/torchvision
+# are NOT listed: they come from the base image (torch 2.0.1+cu117, torchvision 0.15.2).
+numpy==1.23.5
+scipy==1.10.1
+nibabel==5.1.0
+pandas==1.5.3
+openpyxl==3.1.2
+xlrd==2.0.1
+scikit-image==0.19.3
+lpips==0.1.4
+ema-pytorch==0.5.3
+accelerate==0.20.3
+einops==0.6.1
+tqdm==4.65.0
+matplotlib==3.7.3
+Pillow==9.4.0
+SimpleITK==2.1.1.2
+pydicom==2.3.1
+opencv-python==4.8.1.78
+dipy==1.9.0
+python-pptx==0.6.23
+# notebooks / terminals in the browser (run_jupyter.sh)
+jupyterlab==3.6.7
+ipykernel==6.29.5
