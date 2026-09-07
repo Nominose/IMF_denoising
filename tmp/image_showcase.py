@@ -335,10 +335,10 @@ if __name__ == "__main__":
         #
         # CNR is a whole-volume number (see cnr_chen), so it depends on NFE, not on the slice shown.
         # At NFE=3 ours beats DDIM only on cases 31/33/35/36, and only case 31 has contrast worth
-        # showing; at NFE=10 ours wins on all eight cases with margin (case 30: 1.75 vs 1.54).
-        # --nfe therefore decides which row-2 cases are usable; the default stays 3 because that
-        # is the paper's headline operating point -- pass --nfe 10 for the version where both rows
-        # have ours on top.
+        # showing. At NFE=5 (PCCT_experiments/predict_2D_imf.py --nfe 5, K=20) ours wins on all
+        # eight cases (case 30: 1.67 vs 1.54, case 31: 2.49 vs 1.90; mean 1.341 vs 1.176), and NFE=10
+        # widens it further (1.75 / 2.75). Use --nfe 5 for this figure: both rows have ours on top and
+        # it stays inside the paper's "few-step (<=5)" claim.
         # Each arrow starts 34 px down-left of its target so the tip stops just short of it.
         # The 4th element shifts the crop so the whole skull fits: case 30's head sits ~45 px lower
         # in the FOV than case 31's and its posterior skull was cut off at the panel edge.

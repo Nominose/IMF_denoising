@@ -8,6 +8,8 @@
 application/
 tmp/*
 !tmp/eval_mayo.py
+!tmp/eval_brain.py
+!tmp/fill_brain_xlsx.py
 !tmp/collect_results.py
 !tmp/image_showcase.py
 *.docx
