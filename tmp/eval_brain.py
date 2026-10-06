@@ -61,8 +61,15 @@ def gt_volumes():
     return out
 
 
-def pred_volume(folder, pid_int, k):
-    """highest-epoch K-average of this patient, or None"""
+# Deployed checkpoint per method. Side experiments left other epochs next to it for some patients
+# (iMF+GAN NFE=3 has epoch 44 and 50 for patient 214841 beside the deployed 28), and "highest epoch"
+# then silently scores a different model for that one patient. Baselines have no entry: their epoch
+# differs per patient by design (two trainings), so the highest present is taken.
+DEPLOYED = {'iMF': 200, 'GAN': 28}
+
+
+def pred_volume(folder, pid_int, k, prefer_epoch=None):
+    """K-average of this patient at prefer_epoch if it exists, else at the highest epoch; or None"""
     best = None
     for pdir in glob.glob(os.path.join(folder, '*')):
         try:
@@ -71,6 +78,8 @@ def pred_volume(folder, pid_int, k):
         except ValueError:
             continue
         for p in glob.glob(os.path.join(pdir, '**', 'epoch*avg', f'pred_img_scans{k}.nii.gz'), recursive=True):
+            if prefer_epoch is not None and epoch_of(p) == prefer_epoch:
+                return p
             if best is None or epoch_of(p) > epoch_of(best):
                 best = p
     return best
@@ -128,7 +137,7 @@ def main():
                 continue
             for pid, gt in sorted(gts.items()):
                 for k in a.k:
-                    p = pred_volume(folder, pid, k)
+                    p = pred_volume(folder, pid, k, DEPLOYED.get(method))
                     (tasks if p else missing).append((method, n, k, pid, p, gt))
     print(f'{len(tasks)} volumes to score, {len(missing)} (method,nfe,k,patient) combos without a prediction', flush=True)
     done = {}
