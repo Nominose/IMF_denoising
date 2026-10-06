@@ -138,7 +138,17 @@ def fig_fits(plt, st, base):
     for ax, (m, name, loc) in zip(axes, PANELS):
         y = st[m].mean(0)
         ax.plot(x, y, 'ko-', label=f'{name.split(" ")[0]} for each K', linewidth=1.5, markersize=6)
-        for fname, col, fn in FITS:
+        # All three families are monotone in K. When the measured curve is not (LPIPS of the
+        # adversarially fine-tuned model is lowest at K = 6 and rises afterwards), drawing them would
+        # suggest a plateau the data do not have, so the panel shows the data and marks the optimum.
+        best = int(np.argmax(y) if m == 'ssim' else np.argmin(y))
+        if best != len(y) - 1:
+            ax.plot(x[best], y[best], 'o', ms=13, mfc='none', mec='tab:red', mew=1.8, label=f'Best at K = {int(x[best])}')
+            print(f'  {os.path.basename(base):<22} {m:<5} non-monotone: best at K = {int(x[best])} ({y[best]:.4f}), K = 20 gives {y[-1]:.4f}; fits omitted')
+            fits = []
+        else:
+            fits = FITS
+        for fname, col, fn in fits:
             try:
                 p0 = (y[0] - y[-1], 0.5, y[-1]) if fname != 'Logarithmic' else None
                 p, _ = curve_fit(fn, x, y, p0=p0, maxfev=20000)
@@ -158,7 +168,9 @@ def fig_fits(plt, st, base):
 
 
 def fig_compare(plt, stat, base):
-    """Both models on the same axes (mean with a +-1 std band over patients), no fits."""
+    """Both models on the same axes, no fits. Means only: the spread between patients (std ~0.45 HU
+    in MAE) is several times the difference between the models and would bury it under two
+    overlapping bands, although the comparison is paired -- see the printed per-patient counts."""
     if len(stat) < 2:
         return
     x = np.array(KS, float)
@@ -166,9 +178,7 @@ def fig_compare(plt, stat, base):
     fig, axes = plt.subplots(1, 3, figsize=(13.5, 3.9), dpi=200)
     for ax, (m, name, _) in zip(axes, PANELS):
         for (label, st), c in zip(stat.items(), cols):
-            mu, sd = st[m].mean(0), st[m].std(0, ddof=1)
-            ax.fill_between(x, mu - sd, mu + sd, color=c, alpha=0.12, lw=0)
-            ax.plot(x, mu, 'o-', color=c, ms=5, lw=1.3, label=label)
+            ax.plot(x, st[m].mean(0), 'o-', color=c, ms=5, lw=1.5, label=label)
         ax.set_xlim(0, 20.5); ax.set_xticks(np.arange(2, 21, 2))
         ax.set_xlabel('Number of Sampling Inferences, K', fontsize=11, fontweight='bold')
         ax.set_ylabel(name, fontsize=11, fontweight='bold'); ax.grid(True, alpha=0.3)
@@ -177,6 +187,12 @@ def fig_compare(plt, stat, base):
     for ext in ('png', 'pdf'):
         fig.savefig(f'{base}.{ext}', dpi=300, bbox_inches='tight')
     plt.close(fig)
+    (la, a), (lb, b) = list(stat.items())
+    print()
+    print(f'patients (of {len(a["patients"])}) where "{la}" is better than "{lb}", per K = {KS}:')
+    for m in ('mae', 'ssim', 'lpips'):
+        wins = [(a[m][:, j] > b[m][:, j]).sum() if m == 'ssim' else (a[m][:, j] < b[m][:, j]).sum() for j in range(len(KS))]
+        print(f'   {m:<5} {[int(w) for w in wins]}')
 
 
 if __name__ == '__main__':
