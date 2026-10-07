@@ -1,0 +1,125 @@
+r"""Sampler ablation (Section 5.2.1): one figure and one LaTeX table from the two result workbooks.
+
+Reads results/brianct/results_collection_brainCT.xlsx and results/mayo/results_collection_mayo.xlsx
+(one sheet per NFE; cells are "mean+-std" / "mean ± std"; columns K=10 then K=20) and writes
+
+    sampler_ablation_nfe.{png,pdf}   2 x 3 panels: rows = dataset, columns = MAE / SSIM / LPIPS,
+                                     x = NFE (log), one line per sampler, K = 20.
+                                     MAE and LPIPS use a log y-axis: the diffusion samplers are an order
+                                     of magnitude off at 2-3 steps and would flatten everything else.
+    sampler_ablation_table.tex       the same numbers, K = 20, all NFE, best value per column in bold.
+
+Only the four samplers trained with the plain objective are shown; the adversarial fine-tuning is a
+separate ablation and would confound a comparison of samplers.
+
+    python tmp/sampler_ablation.py --out D:/research/projects/denoising/results/paper_revision
+"""
+import argparse
+import os
+import re
+import sys
+
+import numpy as np
+import openpyxl
+
+sys.stdout.reconfigure(encoding='utf-8')
+R = os.environ.get('RESULTS_ROOT', r'D:\research\projects\denoising\results')
+BOOKS = [('Low-dose abdominal CT', os.path.join(R, 'mayo', 'results_collection_mayo.xlsx')),
+         ('Thin-slice brain CT', os.path.join(R, 'brianct', 'results_collection_brainCT.xlsx'))]
+ROWS = [('DDIM', 'DDIM'), ('EDM', 'EDM'), ('flow matching', 'Flow matching'), ('improved mean flow', 'iMF')]
+NFES = [2, 3, 5, 10, 20, 30, 50]
+METRICS = [('MAE (HU)', 4, 3, False), ('SSIM', 5, 3, True), ('LPIPS', 6, 4, False)]     # name, K=20 column (0-based), decimals, higher-is-better
+STYLE = {'DDIM': ('#7f7f7f', 's', 1.6), 'EDM': ('#e69f00', '^', 1.6), 'Flow matching': ('#0072b2', 'o', 1.6), 'iMF': ('#d62728', 'D', 2.4)}
+
+
+def read(path):
+    """-> {label: {metric_name: (means[7], stds[7])}}"""
+    wb = openpyxl.load_workbook(path, data_only=True)
+    out = {lab: {m[0]: ([np.nan] * len(NFES), [np.nan] * len(NFES)) for m in METRICS} for _, lab in ROWS}
+    for i, n in enumerate(NFES):
+        ws = wb[f'NFE={n}']
+        for row in ws.iter_rows(min_row=3, values_only=True):
+            key = str(row[0]).strip().lower() if row[0] else ''
+            for name, lab in ROWS:
+                if key == name.lower():
+                    for mname, col, _, _ in METRICS:
+                        v = row[col]
+                        m = re.match(r'\s*([-\d.]+)\s*(?:\+-|±)\s*([-\d.]+)', str(v)) if v is not None else None
+                        if m:
+                            out[lab][mname][0][i] = float(m.group(1)); out[lab][mname][1][i] = float(m.group(2))
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--out', default=os.path.join(R, 'paper_revision'))
+    a = ap.parse_args()
+    data = [(title, read(path)) for title, path in BOOKS]
+
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import FixedLocator, FuncFormatter, NullLocator
+    fig, axes = plt.subplots(2, 3, figsize=(11.5, 6.4), dpi=200)
+    for r, (title, d) in enumerate(data):
+        for c, (mname, _, _, _) in enumerate(METRICS):
+            ax = axes[r, c]
+            for lab in [l for _, l in ROWS]:
+                col, mk, lw = STYLE[lab]
+                ax.plot(NFES, d[lab][mname][0], marker=mk, color=col, lw=lw, ms=5.5, label=lab, zorder=3 if lab == 'iMF' else 2)
+            ax.set_xscale('log'); ax.xaxis.set_major_locator(FixedLocator(NFES)); ax.xaxis.set_minor_locator(NullLocator())
+            ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f'{int(v)}'))
+            if mname != 'SSIM':
+                ax.set_yscale('log')
+                lo = np.nanmin([np.nanmin(d[l][mname][0]) for _, l in ROWS]); hi = np.nanmax([np.nanmax(d[l][mname][0]) for _, l in ROWS])
+                cand = [t for t in (0.03, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 5, 10, 15, 20, 30, 50, 100, 150) if lo * 0.9 <= t <= hi * 1.1]
+                ax.yaxis.set_major_locator(FixedLocator(cand)); ax.yaxis.set_minor_locator(NullLocator())
+                ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f'{v:g}'))
+            ax.grid(True, alpha=0.3); ax.spines[['top', 'right']].set_visible(False)
+            ax.set_ylabel(mname, fontsize=11, fontweight='bold')
+            if r == 1:
+                ax.set_xlabel('NFE', fontsize=11, fontweight='bold')
+            if c == 0:
+                ax.set_title(title, fontsize=11, fontweight='bold', loc='left')
+    axes[0, 2].legend(frameon=True, fontsize=9, loc='upper right')
+    fig.tight_layout()
+    os.makedirs(a.out, exist_ok=True)
+    for ext in ('png', 'pdf'):
+        fig.savefig(os.path.join(a.out, f'sampler_ablation_nfe.{ext}'), dpi=300, bbox_inches='tight')
+
+    # ---- LaTeX table: K = 20, all NFE, best per column in bold -------------------------------
+    L = [r'% Sampler ablation, K = 20. Generated by tmp/sampler_ablation.py from the two result workbooks.',
+         r'\begin{table*}[t]', r'\centering', r'\small',
+         r'\caption{Comparison of sampling methods within the Noise2Noise framework at $K = 20$. Values are mean $\pm$ standard deviation over test cases; the best value in each column is in bold.}',
+         r'\label{tab:samplers}', r'\begin{tabular}{ll' + 'r' * len(NFES) + '}', r'\hline',
+         r' & & \multicolumn{' + str(len(NFES)) + r'}{c}{NFE} \\', 'Metric & Method & ' + ' & '.join(str(n) for n in NFES) + r' \\', r'\hline']
+    for title, d in data:
+        L.append(r'\multicolumn{' + str(2 + len(NFES)) + r'}{l}{\textit{' + title + r'}} \\')
+        for mname, _, dec, higher in METRICS:
+            arr = np.array([d[lab][mname][0] for _, lab in ROWS])
+            best = np.nanargmax(arr, 0) if higher else np.nanargmin(arr, 0)
+            for i, (_, lab) in enumerate(ROWS):
+                cells = []
+                for j in range(len(NFES)):
+                    mu, sd = d[lab][mname][0][j], d[lab][mname][1][j]
+                    if np.isnan(mu):
+                        cells.append('--'); continue
+                    t = f'{mu:.{dec}f} $\\pm$ {sd:.{dec}f}'
+                    cells.append(r'\textbf{' + t + '}' if best[j] == i else t)
+                arrow = r'$\uparrow$' if higher else r'$\downarrow$'
+                L.append((mname.replace(' (HU)', '') + ' ' + arrow if i == 0 else '') + ' & ' + lab + ' & ' + ' & '.join(cells) + r' \\')
+            L.append(r'\hline')
+    L += [r'\end{tabular}', r'\end{table*}', '']
+    with open(os.path.join(a.out, 'sampler_ablation_table.tex'), 'w', encoding='utf-8', newline='\n') as f:
+        f.write('\n'.join(L))
+
+    for title, d in data:
+        print(title)
+        for mname, _, dec, _ in METRICS:
+            for _, lab in ROWS:
+                print(f'   {mname:<9} {lab:<14} ' + '  '.join(f'{v:8.{dec}f}' for v in d[lab][mname][0]))
+    print('wrote', os.path.join(a.out, 'sampler_ablation_nfe.{png,pdf}'), 'and sampler_ablation_table.tex')
+
+
+if __name__ == '__main__':
+    main()

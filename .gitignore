@@ -14,6 +14,7 @@ tmp/*
 !tmp/ksweep_brain.py
 !tmp/ksweep_examples.py
 !tmp/x2ref_brain_check.py
+!tmp/sampler_ablation.py
 !tmp/fill_brain_xlsx.py
 !tmp/collect_results.py
 !tmp/image_showcase.py
