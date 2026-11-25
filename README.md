@@ -1,17 +1,16 @@
-# N2NDM + iMF: Self-supervised CT Denoising with Improved Mean Flow
+# Noise2Noise Flow Model for Self-Supervised CT Denoising with Expedited Inference
 
-This repository implements **Noise2Noise Diffusion Model (N2NDM)** accelerated with an
-**improved Mean Flow (iMF)** backbone for **self-supervised** CT image denoising — no clean
-training data is ever used. iMF turns the many-step conditional-diffusion sampler of N2NDM into a
-**few-step (NFE 1–5)** flow-matching sampler, and an optional **self-supervised adversarial (GAN)
-fine-tuning** stage sharpens the one-step reconstruction. Experiments cover thin-slice **brain CT**,
-**Mayo low-dose abdominal CT**, and **photon-counting CT (PCCT)**.
+N2N-iMF learns to generate one noisy CT observation conditioned on its paired observation. At inference, it draws several samples with Improved Mean Flow and averages them to denoise the image.
+
+The [paper experiments](paper_experiments/README.md) include inference settings for simulated brain CT, simulated abdominal CT and real-world PCCT, along with the comparison tables and the NFE and K ablation data. To print the sampling comparison, run:
+
+```sh
+python paper_experiments/report.py
+```
 
 ## Method Overview
 
-**N2NDM (base).** Trains a conditional generative model to sample from `p(x2|x1)`, where `{x1, x2}`
-is a Noise2Noise pair — two independent noisy realizations of the *same* clean slice. Drawing `K`
-samples and averaging cancels the noise while preserving structure.
+**Noisy training pairs.** The abdominal model pairs reconstructions from disjoint projections. The brain CT and PCCT models condition on the two neighboring slices and learn to generate the central slice.
 
 **iMF (acceleration).** The cDDPM backbone is replaced by improved Mean Flow (`ImprovedMeanFlow`),
 a flow-matching model supporting few-step Euler/midpoint/Heun sampling:
@@ -19,10 +18,8 @@ a flow-matching model supporting few-step Euler/midpoint/Heun sampling:
   fixed-`K` second stage.
 - Mixed training objective: `ratio_r_neq_t=0.50` blends MeanFlow (r≠t) with plain flow matching,
   plus an auxiliary velocity head (`auxiliary_v_head=True`, the "v2" model).
-- NFE analysis: NFE=1 collapses to the posterior mean (≈ N2N regression); NFE=1→2 is the
-  qualitative jump to non-zero sample diversity; NFE=2→3 refines quantitatively.
 
-**Self-supervised GAN fine-tuning (`gan/`, experimental).** Loads a flow-pretrained checkpoint and
+**Adversarial fine-tuning for brain CT and PCCT (`gan/`).** Loads a flow-pretrained checkpoint and
 adds a small adversarial term, `L_total = L_flow + beta * L_adv`, pushing the model's one-step
 output `x0_gen = z - u(z, r=0, t=1, c)` toward the **noisy `x2`** distribution (the discriminator's
 "real" is the noisy N2N target — never clean data). A high-pass PatchGAN discriminator (`img -
@@ -94,7 +91,7 @@ mounted at `/host/<drive>` (so data lives under `/host/d/research` and the repo 
 `bash docker/run_jupyter.sh --build`. Newer scripts auto-detect the data root (`/host/d/research`
 then `/host/d`) and remap stale paths, so absolute paths degrade gracefully.
 
-## How to Run
+## Training and individual scripts
 
 ### Brain CT (thin-slice, adjacent-slice N2N)
 
@@ -104,11 +101,11 @@ Train (edit params at the top of the script — `supervision='unsupervised'`, `c
 python Thinslice_experiments/train_2D_imf.py
 ```
 
-Inference — run twice per NFE (generate K samples, then average). Use `predict_2D_imf_v2.py` for the
+Example with a base checkpoint and K = 10. First generate ten samples, then average them. Use `predict_2D_imf_v2.py` for the
 aux-v-head "v2" checkpoint (writes to a per-NFE folder so NFE runs don't collide):
 ```bash
-python Thinslice_experiments/predict_2D_imf_v2.py --epoch 200 --mode pred --iteration_num 20 --num_steps 3
-python Thinslice_experiments/predict_2D_imf_v2.py --epoch 200 --mode avg  --num_steps 3
+python Thinslice_experiments/predict_2D_imf_v2.py --epoch 200 --mode pred --iteration_num 10 --num_steps 3
+python Thinslice_experiments/predict_2D_imf_v2.py --epoch 200 --mode avg  --k_save 10 --num_steps 3
 ```
 `predict_2D_imf.py` also supports `--solver {euler,midpoint,heun}` and `--schedule {uniform,optimal}`.
 
@@ -126,7 +123,7 @@ python CT_experiments/train_2D_imf_mayo.py
 python CT_experiments/train_2D_imf_mayo.py --train_num_steps 200 --train_batch_size 1
 python CT_experiments/train_2D_imf_mayo.py --patient_list_file <xlsx> --trial_name <name>
 ```
-Abdomen window HU `[-200, 250]`, no histogram equalization, `condition_channel=1`, patch `256x256`;
+Abdominal model input range `[-200, 250]` HU, no histogram equalization, `condition_channel=1`, patch `256x256`;
 evaluation region = slices `[150, 200]`. `switch_odd_and_even_frequency=0.5` randomizes which half
 is condition vs target.
 
@@ -146,8 +143,7 @@ python gan/eval_gan_nfe.py --trial imf_gan_unsupervised_gaussian_brainCT --epoch
 
 - **Self-supervision:** Noise2Noise — brain/PCCT use adjacent slices (s−1, s+1) as the 2-channel
   condition; Mayo uses odd/even half-projection reconstructions (1-channel). No clean data in training.
-- **HU windows / metrics:** brain tissue `[0, 100]` HU; abdomen `[-200, 250]` HU (eval) / `[-160, 240]`
-  in the paper tables. Metrics: MAE, SSIM, LPIPS (AlexNet), reported mean ± std across test cases.
+- **Evaluation windows:** brain tissue `[0, 100]` HU and abdominal tissue `[-160, 240]` HU. Metrics: MAE, SSIM, LPIPS (AlexNet), reported mean ± std across test cases.
 - **Brain CT:** histogram equalization on (bins under `help_data/histogram_equalization/`),
   `background_cutoff=-1000`, `maximum_cutoff=2000`; default inference slice range `30-80`
   (`--slice_range all` to cover the whole volume).
@@ -155,12 +151,6 @@ python gan/eval_gan_nfe.py --trial imf_gan_unsupervised_gaussian_brainCT --epoch
   (the old `predict_2D_imf.py` builds the U-Net without the v-head and will fail to load v2).
 - **Patient lists:** Excel sheets with per-batch splits (e.g. brain batches 0–3 train / 4 val / 5 test;
   Mayo batches `train`/`val`/`test`), read by `Build_lists/Build_list.py`.
-
-## Notes
-
-- The validated contributions are the **NFE=1 posterior-mean collapse analysis** and the **GT-free
-  (N,K) selection** via the x2-reference identity (`eval_x2ref.py`). The `gan/` adversarial path is
-  **experimental and training-only**; whether it improves small-K LPIPS is still under investigation.
 
 ## License
 

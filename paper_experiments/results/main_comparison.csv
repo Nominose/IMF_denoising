@@ -1,0 +1,11 @@
+dataset,method,mae_hu_mean,mae_hu_sd,ssim_mean,ssim_sd,lpips_mean,lpips_sd
+brain,FBP,6.28,0.59,0.412,0.053,0.1540,0.0240
+brain,Noise2Score,4.91,0.68,0.655,0.042,0.0930,0.0090
+brain,Noise2Noise,4.12,0.40,0.693,0.032,0.0990,0.0150
+brain,DDM2,3.50,0.44,0.733,0.035,0.0680,0.0180
+brain,N2N-iMF,2.60,0.36,0.766,0.035,0.0497,0.0131
+abdominal,FBP,23.80,4.50,0.607,0.064,0.1440,0.0420
+abdominal,Noise2Score,16.20,2.90,0.659,0.052,0.1230,0.0430
+abdominal,Noise2Noise,14.60,1.40,0.695,0.026,0.1170,0.0200
+abdominal,DDM2,14.80,1.60,0.678,0.032,0.1100,0.0330
+abdominal,N2N-iMF,14.02,2.38,0.731,0.051,0.0462,0.0123

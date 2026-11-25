@@ -1,0 +1,4 @@
+method,nfe,k_per_input,test_cases,cnr_mean,cnr_sd
+Noise2Noise,1,,8,0.916,0.423
+DDIM,100,8,8,1.176,0.544
+N2N-iMF,5,20,8,1.341,0.671

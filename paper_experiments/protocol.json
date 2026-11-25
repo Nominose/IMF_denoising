@@ -1,0 +1,28 @@
+{
+  "training": {"optimizer": "Adam", "learning_rate": 0.0001, "epochs": 200, "gpu": "NVIDIA A800"},
+  "datasets": {
+    "brain": {
+      "training_cases": 84, "test_cases": 16, "metric_window_hu": [0, 100],
+      "input": "two adjacent slices stacked as channels", "conditioning_inputs": 1,
+      "adversarial_fine_tuning": true, "nfe": 3, "k_per_input": 10
+    },
+    "abdominal": {
+      "training_cases": 7, "test_cases": 3, "metric_window_hu": [-160, 240],
+      "input": "odd and even projection reconstructions sampled separately", "conditioning_inputs": 2,
+      "adversarial_fine_tuning": false, "nfe": 3, "k_per_input": 10
+    },
+    "pcct": {
+      "development_cases": 25, "test_cases": 8, "metric": "gray-white matter CNR",
+      "input": "two adjacent slices stacked as channels", "conditioning_inputs": 1,
+      "adversarial_fine_tuning": true, "histogram_equalization": false, "nfe": 5, "k_per_input": 20
+    }
+  },
+  "sampler_comparison": {
+    "datasets": ["brain", "abdominal"], "methods": ["DDIM", "EDM", "Flow matching", "N2N-iMF"],
+    "nfe": [2, 3, 5, 10, 20, 30, 50], "k_per_input": 10
+  },
+  "averaging_study": {
+    "datasets": ["brain", "abdominal"], "nfe": 3, "k_per_input": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    "brain_adversarial_fine_tuning": false
+  }
+}
